@@ -874,8 +874,30 @@ with st.sidebar:
 if not st.session_state['logged_in']:
     tr = t()
 
+    # Language selector — visible en top para móvil
+    st.markdown("""
+    <div style="display:flex;justify-content:flex-end;padding:8px 0 0;">
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_l1, col_l2, col_l3, col_l4 = st.columns([3,1,1,1])
+    with col_l2:
+        if st.button("EN 🇺🇸", use_container_width=True, key="lang_en"):
+            st.session_state['idioma'] = 'EN'
+            st.rerun()
+    with col_l3:
+        if st.button("ES 🇪🇸", use_container_width=True, key="lang_es"):
+            st.session_state['idioma'] = 'ES'
+            st.rerun()
+    with col_l4:
+        if st.button("PT 🇧🇷", use_container_width=True, key="lang_pt"):
+            st.session_state['idioma'] = 'PT'
+            st.rerun()
+
+    tr = t()  # refresh after potential lang change
+
     st.markdown(f"""
-    <div style="text-align:center;padding:60px 20px 40px;position:relative;">
+    <div style="text-align:center;padding:40px 20px 30px;position:relative;">
         <div class="tag-gold" style="margin-bottom:24px;">
             <span style="width:5px;height:5px;border-radius:50%;background:#C9A84C;display:inline-block;box-shadow:0 0 6px #C9A84C;"></span>
             LuckSort · Data Convergence
@@ -896,6 +918,62 @@ if not st.session_state['logged_in']:
         if st.button(tr['cta_free'], use_container_width=True, key="landing_cta"):
             st.session_state['mostrar_reg'] = True
             st.rerun()
+
+    # Login / Register inline — visible sin sidebar
+    if st.session_state.get('mostrar_reg'):
+        st.markdown("---")
+        st.markdown(f"""
+        <h3 style="font-family:'Playfair Display',serif;color:#C9A84C;text-align:center;margin-bottom:16px;">
+            ◆ {tr['register']}
+        </h3>
+        """, unsafe_allow_html=True)
+        col_a, col_b, col_c = st.columns([1,2,1])
+        with col_b:
+            tab_reg, tab_login = st.tabs([tr['register'], tr['login']])
+            with tab_reg:
+                r_email = st.text_input(tr['email'], key="land_r_email")
+                r_pass = st.text_input(tr['password'], type="password", key="land_r_pass")
+                r_pass2 = st.text_input(tr['confirm_pass'], type="password", key="land_r_pass2")
+                if st.button(tr['btn_register'], use_container_width=True, key="land_btn_reg"):
+                    if r_pass != r_pass2:
+                        st.error(tr['pass_mismatch'])
+                    elif len(r_pass) < 6:
+                        st.warning(tr['pass_short'])
+                    elif "@" not in r_email:
+                        st.warning(tr['email_invalid'])
+                    else:
+                        ok, res = registrar_usuario(r_email, r_pass)
+                        if ok:
+                            st.session_state.update({
+                                'logged_in': True, 'user_role': 'free',
+                                'user_email': r_email, 'user_id': res['id'],
+                                'vista': 'app', 'mostrar_reg': False
+                            })
+                            email_bienvenida(r_email)
+                            st.rerun()
+                        elif res == "exists":
+                            st.error(tr['email_exists'])
+                        else:
+                            st.error("⚠️ Error. Please try again.")
+            with tab_login:
+                l_email = st.text_input(tr['email'], key="land_l_email")
+                l_pass = st.text_input(tr['password'], type="password", key="land_l_pass")
+                if st.button(tr['btn_login'], use_container_width=True, key="land_btn_login"):
+                    if l_email == ADMIN_EMAIL and l_pass == ADMIN_PASS:
+                        st.session_state.update({'logged_in': True, 'user_role': 'admin', 'user_email': l_email, 'user_id': None, 'vista': 'app'})
+                        st.rerun()
+                    else:
+                        ok, datos = login_usuario(l_email, l_pass)
+                        if ok:
+                            st.session_state.update({
+                                'logged_in': True, 'user_role': datos['role'],
+                                'user_email': datos['email'], 'user_id': datos['id'],
+                                'vista': 'app'
+                            })
+                            resetear_uso_diario()
+                            st.rerun()
+                        else:
+                            st.error(tr['login_err'])
         st.markdown("""
         <p style="text-align:center;font-family:'DM Mono',monospace;font-size:9px;
         color:rgba(255,255,255,0.2);letter-spacing:1.5px;margin-top:8px;">
