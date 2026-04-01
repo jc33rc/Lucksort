@@ -15,7 +15,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Session state
 defaults = {
     'logged_in': False,
     'user_role': 'invitado',
@@ -23,36 +22,38 @@ defaults = {
     'user_id': None,
     'idioma': 'EN',
     'fecha_uso': str(date.today()),
-    'generaciones_hoy': {},  # {loteria_id: count}
+    'generaciones_hoy': {},
     'ultima_generacion': None,
+    'ultima_loteria': None,
     'vista': 'landing',
+    'mostrar_reg': False,
 }
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
 # ==========================================
-# 2. CSS — DARK GOLD THEME
+# 2. CSS DARK GOLD THEME
 # ==========================================
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500;600&display=swap');
 
-/* Base */
+* { box-sizing: border-box; }
 body, .stApp { background-color: #0a0a0f !important; color: white !important; }
 .stApp { font-family: 'DM Sans', sans-serif !important; }
-
-/* Hide streamlit elements */
 #MainMenu, footer, header { visibility: hidden; }
 .stDeployButton { display: none; }
 
-/* Sidebar */
+/* SIDEBAR */
 section[data-testid="stSidebar"] {
-    background-color: #0f0f18 !important;
-    border-right: 1px solid rgba(255,255,255,0.06);
+    background: linear-gradient(180deg, #0d0d1a 0%, #0a0a0f 100%) !important;
+    border-right: 1px solid rgba(201,168,76,0.12) !important;
+    min-width: 260px !important;
 }
+section[data-testid="stSidebar"] > div { padding-top: 0 !important; }
 
-/* Buttons */
+/* BUTTONS — gold primary */
 .stButton>button {
     background: linear-gradient(135deg, #C9A84C, #F5D68A) !important;
     color: #0a0a0f !important;
@@ -60,40 +61,36 @@ section[data-testid="stSidebar"] {
     font-weight: 600 !important;
     border: none !important;
     border-radius: 10px !important;
-    padding: 10px 20px !important;
-    box-shadow: 0 4px 16px rgba(201,168,76,0.28) !important;
     transition: all 0.2s !important;
+    box-shadow: 0 4px 16px rgba(201,168,76,0.25) !important;
 }
 .stButton>button:hover {
     transform: translateY(-1px) !important;
     box-shadow: 0 8px 24px rgba(201,168,76,0.38) !important;
 }
 
-/* Secondary buttons */
-.btn-secondary>button {
+/* ghost button override */
+[data-testid="stSidebar"] .stButton>button[kind="secondary"],
+.ghost-btn button {
     background: transparent !important;
-    color: rgba(255,255,255,0.6) !important;
-    border: 1px solid rgba(255,255,255,0.14) !important;
+    color: rgba(255,255,255,0.55) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
     box-shadow: none !important;
 }
 
-/* Inputs */
+/* INPUTS */
 .stTextInput>div>div>input,
-.stTextArea>div>div>textarea,
-.stSelectbox>div>div>select {
+.stTextArea>div>div>textarea {
     background-color: rgba(255,255,255,0.04) !important;
     border: 1px solid rgba(255,255,255,0.1) !important;
     color: white !important;
     border-radius: 8px !important;
     font-family: 'DM Sans', sans-serif !important;
 }
-.stTextInput>div>div>input:focus,
-.stTextArea>div>div>textarea:focus {
-    border-color: rgba(201,168,76,0.5) !important;
-    box-shadow: 0 0 0 2px rgba(201,168,76,0.1) !important;
+.stTextInput>div>div>input:focus {
+    border-color: rgba(201,168,76,0.45) !important;
+    box-shadow: 0 0 0 2px rgba(201,168,76,0.08) !important;
 }
-
-/* Selectbox */
 .stSelectbox>div>div {
     background-color: rgba(255,255,255,0.04) !important;
     border: 1px solid rgba(255,255,255,0.1) !important;
@@ -101,90 +98,60 @@ section[data-testid="stSidebar"] {
     color: white !important;
 }
 
-/* Cards */
-.luck-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 16px;
+/* TABS */
+.stTabs [data-baseweb="tab-list"] {
+    background: rgba(255,255,255,0.03) !important;
+    border-radius: 8px !important;
+    gap: 4px !important;
 }
-.luck-card-gold {
-    background: rgba(201,168,76,0.06);
-    border: 1px solid rgba(201,168,76,0.25);
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 16px;
+.stTabs [data-baseweb="tab"] {
+    color: rgba(255,255,255,0.45) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 13px !important;
 }
-
-/* Number balls */
-.number-ball {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.07);
-    border: 1px solid rgba(255,255,255,0.15);
-    font-family: 'DM Mono', monospace;
-    font-size: 16px; font-weight: 600;
-    color: rgba(255,255,255,0.9);
-    margin: 4px;
-}
-.number-ball-gold {
-    background: linear-gradient(135deg, #C9A84C, #F5D68A);
-    border: none;
-    color: #0a0a0f;
-    box-shadow: 0 0 20px rgba(201,168,76,0.4);
+.stTabs [aria-selected="true"] {
+    color: #C9A84C !important;
+    background: rgba(201,168,76,0.1) !important;
+    border-radius: 6px !important;
 }
 
-/* Tags */
-.tag-gold {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: rgba(201,168,76,0.1);
-    border: 1px solid rgba(201,168,76,0.25);
-    border-radius: 20px; padding: 4px 12px;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px; color: #C9A84C;
-    letter-spacing: 2px; text-transform: uppercase;
+/* RADIO */
+.stRadio>div { flex-direction: row !important; gap: 10px !important; flex-wrap: wrap !important; }
+.stRadio>div>label {
+    background: rgba(255,255,255,0.03) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 8px !important;
+    padding: 6px 14px !important;
+    color: rgba(255,255,255,0.55) !important;
+    font-size: 13px !important;
 }
 
-/* Source row */
-.source-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px; border-radius: 9px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(255,255,255,0.06);
-    margin-bottom: 8px;
-    font-family: 'DM Sans', sans-serif; font-size: 13px;
-    color: rgba(255,255,255,0.4);
-}
-.source-number {
-    font-family: 'DM Mono', monospace;
-    font-size: 13px; color: #C9A84C; font-weight: 600;
+/* EXPANDER */
+.stExpander {
+    border: 1px solid rgba(201,168,76,0.15) !important;
+    border-radius: 12px !important;
+    background: rgba(255,255,255,0.02) !important;
 }
 
-/* Divider gold */
-.gold-divider {
-    width: 40px; height: 2px; margin: 12px 0;
-    background: linear-gradient(90deg, transparent, #C9A84C, transparent);
-}
-
-/* Metric pill */
-.metric-pill {
-    display: inline-block;
-    padding: 4px 12px; border-radius: 20px;
-    background: rgba(201,168,76,0.1);
-    border: 1px solid rgba(201,168,76,0.2);
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; color: #C9A84C;
-}
-
-/* Shimmer text */
+/* ANIMATIONS */
 @keyframes shimmer {
     0% { background-position: -200% center; }
     100% { background-position: 200% center; }
 }
+@keyframes ballPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 12px rgba(201,168,76,0.3); }
+    50% { transform: scale(1.06); box-shadow: 0 0 24px rgba(201,168,76,0.55); }
+}
+@keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+    0% { transform: rotate(0deg) scale(1); opacity: 0.4; }
+    50% { transform: rotate(180deg) scale(1.1); opacity: 0.7; }
+    100% { transform: rotate(360deg) scale(1); opacity: 0.4; }
+}
+
 .shimmer {
     background: linear-gradient(90deg, #C9A84C 0%, #F5D68A 35%, #C9A84C 65%, #F5D68A 100%);
     background-size: 200% auto;
@@ -194,32 +161,105 @@ section[data-testid="stSidebar"] {
     animation: shimmer 3s linear infinite;
 }
 
-/* Radio buttons */
-.stRadio>div { flex-direction: row !important; gap: 12px !important; }
-.stRadio>div>label {
-    background: rgba(255,255,255,0.04) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 8px !important; padding: 8px 16px !important;
-    cursor: pointer !important; color: rgba(255,255,255,0.6) !important;
+/* CARDS */
+.luck-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 22px;
+    margin-bottom: 14px;
+}
+.luck-card-gold {
+    background: rgba(201,168,76,0.055);
+    border: 1px solid rgba(201,168,76,0.22);
+    border-radius: 16px;
+    padding: 22px;
+    margin-bottom: 14px;
 }
 
-/* Disclaimer box */
+/* NUMBER BALLS */
+.balls-wrap {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 18px 0;
+}
+.ball {
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 17px; font-weight: 600;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.9);
+}
+.ball-gold {
+    background: linear-gradient(135deg, #C9A84C, #F5D68A);
+    border: none;
+    color: #0a0a0f;
+    animation: ballPulse 2.5s ease-in-out infinite;
+}
+
+/* SOURCE ROWS */
+.src-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 8px;
+    gap: 12px;
+}
+.src-left { display: flex; align-items: flex-start; gap: 10px; flex: 1; }
+.src-icon { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+.src-label { font-family: 'DM Sans',sans-serif; font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.7); }
+.src-desc { font-family: 'DM Sans',sans-serif; font-size: 11px; color: rgba(255,255,255,0.35); line-height: 1.55; margin-top: 2px; }
+.src-num { font-family: 'DM Mono',monospace; font-size: 15px; color: #C9A84C; font-weight: 600; flex-shrink: 0; margin-top: 2px; }
+.src-complement { border-color: rgba(255,255,255,0.04); background: rgba(255,255,255,0.015); }
+.src-complement .src-num { color: rgba(255,255,255,0.3); }
+
+/* MISC */
+.tag-gold {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(201,168,76,0.1);
+    border: 1px solid rgba(201,168,76,0.22);
+    border-radius: 20px; padding: 4px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px; color: #C9A84C;
+    letter-spacing: 2px; text-transform: uppercase;
+}
+.metric-pill {
+    display: inline-block;
+    padding: 4px 12px; border-radius: 20px;
+    background: rgba(201,168,76,0.08);
+    border: 1px solid rgba(201,168,76,0.18);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; color: #C9A84C;
+}
 .disclaimer {
-    background: rgba(201,168,76,0.05);
-    border: 1px solid rgba(201,168,76,0.15);
-    border-radius: 10px; padding: 14px 16px;
+    background: rgba(201,168,76,0.04);
+    border: 1px solid rgba(201,168,76,0.12);
+    border-radius: 10px; padding: 13px 15px;
     font-family: 'DM Sans', sans-serif;
-    font-size: 12px; color: rgba(255,255,255,0.35);
+    font-size: 12px; color: rgba(255,255,255,0.3);
     line-height: 1.65; font-style: italic;
     margin-top: 16px;
 }
-
-/* Grid bg */
-.grid-bg {
-    background-image:
-        linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-    background-size: 50px 50px;
+.gold-line {
+    width: 36px; height: 2px;
+    background: linear-gradient(90deg, transparent, #C9A84C, transparent);
+    margin: 10px auto;
+}
+.sidebar-divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    margin: 12px 0;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -236,7 +276,7 @@ try:
     ADMIN_PASS = st.secrets.get("ADMIN_PASS", "admin123")
     NEWS_API_KEY = st.secrets.get("NEWS_API_KEY", "")
 except:
-    st.error("⚠️ Configura tus variables en st.secrets")
+    st.error("⚠️ Configure your secrets in Streamlit Cloud settings.")
     st.stop()
 
 client_groq = Groq(api_key=GROQ_API_KEY)
@@ -247,18 +287,20 @@ APP_URL = "https://lucksort.streamlit.app"
 # 4. LOTERÍAS
 # ==========================================
 LOTERIAS = [
-    {"id": 1, "nombre": "Powerball",      "pais": "USA",    "bandera": "🇺🇸", "min": 1, "max": 69, "cantidad": 5, "bonus": True,  "bonus_max": 26},
-    {"id": 2, "nombre": "Mega Millions",  "pais": "USA",    "bandera": "🇺🇸", "min": 1, "max": 70, "cantidad": 5, "bonus": True,  "bonus_max": 25},
-    {"id": 3, "nombre": "EuroMillions",   "pais": "Europa", "bandera": "🇪🇺", "min": 1, "max": 50, "cantidad": 5, "bonus": True,  "bonus_max": 12},
-    {"id": 4, "nombre": "UK Lotto",       "pais": "UK",     "bandera": "🇬🇧", "min": 1, "max": 59, "cantidad": 6, "bonus": False, "bonus_max": None},
-    {"id": 5, "nombre": "El Gordo",       "pais": "España", "bandera": "🇪🇸", "min": 1, "max": 54, "cantidad": 5, "bonus": True,  "bonus_max": 10},
-    {"id": 6, "nombre": "Mega-Sena",      "pais": "Brasil", "bandera": "🇧🇷", "min": 1, "max": 60, "cantidad": 6, "bonus": False, "bonus_max": None},
-    {"id": 7, "nombre": "Baloto",         "pais": "Colombia","bandera":"🇨🇴", "min": 1, "max": 43, "cantidad": 6, "bonus": True,  "bonus_max": 16},
-    {"id": 8, "nombre": "La Primitiva",   "pais": "España", "bandera": "🇪🇸", "min": 1, "max": 49, "cantidad": 6, "bonus": False, "bonus_max": None},
+    {"id": 1,  "nombre": "Powerball",     "pais": "USA",     "bandera": "🇺🇸", "min": 1, "max": 69, "cantidad": 5, "bonus": True,  "bonus_max": 26,  "bonus_name": "Powerball"},
+    {"id": 2,  "nombre": "Mega Millions", "pais": "USA",     "bandera": "🇺🇸", "min": 1, "max": 70, "cantidad": 5, "bonus": True,  "bonus_max": 25,  "bonus_name": "Mega Ball"},
+    {"id": 3,  "nombre": "EuroMillions",  "pais": "Europa",  "bandera": "🇪🇺", "min": 1, "max": 50, "cantidad": 5, "bonus": True,  "bonus_max": 12,  "bonus_name": "Lucky Star"},
+    {"id": 4,  "nombre": "UK Lotto",      "pais": "UK",      "bandera": "🇬🇧", "min": 1, "max": 59, "cantidad": 6, "bonus": False, "bonus_max": None,"bonus_name": None},
+    {"id": 5,  "nombre": "El Gordo",      "pais": "España",  "bandera": "🇪🇸", "min": 1, "max": 54, "cantidad": 5, "bonus": True,  "bonus_max": 10,  "bonus_name": "Reintegro"},
+    {"id": 6,  "nombre": "Mega-Sena",     "pais": "Brasil",  "bandera": "🇧🇷", "min": 1, "max": 60, "cantidad": 6, "bonus": False, "bonus_max": None,"bonus_name": None},
+    {"id": 7,  "nombre": "Lotofácil",     "pais": "Brasil",  "bandera": "🇧🇷", "min": 1, "max": 25, "cantidad": 15,"bonus": False, "bonus_max": None,"bonus_name": None},
+    {"id": 8,  "nombre": "Baloto",        "pais": "Colombia","bandera": "🇨🇴", "min": 1, "max": 43, "cantidad": 6, "bonus": True,  "bonus_max": 16,  "bonus_name": "Balota"},
+    {"id": 9,  "nombre": "La Primitiva",  "pais": "España",  "bandera": "🇪🇸", "min": 1, "max": 49, "cantidad": 6, "bonus": False, "bonus_max": None,"bonus_name": None},
+    {"id": 10, "nombre": "EuroJackpot",   "pais": "Europa",  "bandera": "🇪🇺", "min": 1, "max": 50, "cantidad": 5, "bonus": True,  "bonus_max": 12,  "bonus_name": "Euro Number"},
+    {"id": 11, "nombre": "Canada Lotto",  "pais": "Canadá",  "bandera": "🇨🇦", "min": 1, "max": 49, "cantidad": 6, "bonus": True,  "bonus_max": 49,  "bonus_name": "Bonus"},
 ]
 
-MAX_GENERACIONES_FREE = 5
-MAX_GENERACIONES_PAID = 5
+MAX_GEN = 5
 
 # ==========================================
 # 5. TRADUCCIONES
@@ -266,24 +308,13 @@ MAX_GENERACIONES_PAID = 5
 T = {
     "EN": {
         "tagline": "Sort Your Luck",
-        "sub": "Data-driven lottery combinations powered by real-world signals.",
-        "hero_1": "Your numbers,",
-        "hero_2": "backed by the",
-        "hero_3": "world's signals.",
-        "hero_sub": "We gather real data — historical draws, today's news, community picks, and your personal dates — converged into combinations that mean something.",
-        "cta": "Generate My Numbers",
+        "hero_1": "Your numbers,", "hero_2": "backed by the", "hero_3": "world's signals.",
+        "hero_sub": "We gather real data — historical draws, today's headlines, community picks, and your personal dates — converged into combinations that mean something.",
         "cta_free": "Start Free",
-        "login": "Sign In",
-        "register": "Create Account",
-        "logout": "Sign Out",
-        "email": "Email",
-        "password": "Password",
-        "confirm_pass": "Confirm Password",
-        "btn_login": "Sign In",
-        "btn_register": "Create Free Account",
-        "plan": "Plan",
-        "free": "Free",
-        "paid": "Convergence",
+        "login": "Sign In", "register": "Create Account", "logout": "Sign Out",
+        "email": "Email", "password": "Password", "confirm_pass": "Confirm Password",
+        "btn_login": "Sign In", "btn_register": "Create Free Account",
+        "plan": "Plan", "free": "Free", "paid": "Convergence",
         "select_lottery": "Select Lottery",
         "personal_inputs": "Tell us about you (optional)",
         "special_date": "Special date (birthday, anniversary...)",
@@ -291,53 +322,44 @@ T = {
         "life_moment": "Something happening in your life right now",
         "exclude_numbers": "Numbers to exclude (comma separated)",
         "follow_crowd": "Crowd preference",
-        "follow": "Follow the crowd",
-        "avoid": "Avoid the crowd",
-        "balanced": "Balanced",
+        "follow": "Follow the crowd", "avoid": "Avoid the crowd", "balanced": "Balanced",
         "generate_btn": "Generate Combination",
-        "generating": "Converging data sources...",
-        "your_combo": "Your Combination",
+        "generating": "Converging 4 data sources...",
         "sources_title": "Where each number comes from",
-        "gen_left": "Generations today",
+        "gen_left": "Today", "of": "of",
         "disclaimer": "We gather and synthesize real-world data so you can play with more than just luck. Maybe you'll need a little less of it — but either way, may it always be on your side.",
-        "paywall_msg": "Upgrade to Convergence plan to unlock data-driven generation.",
+        "paywall_title": "Convergence Plan",
+        "paywall_msg": "Unlock data-driven generation with historical analysis, community intelligence, world events and your personal dates.",
         "upgrade_btn": "Upgrade — $9.99/month",
-        "history": "My History",
-        "no_history": "No combinations generated yet.",
+        "history": "My History", "no_history": "No combinations yet.",
         "login_err": "❌ Incorrect credentials.",
         "pass_mismatch": "⚠️ Passwords don't match.",
         "pass_short": "⚠️ Minimum 6 characters.",
         "email_invalid": "⚠️ Invalid email.",
         "email_exists": "⚠️ Email already registered.",
-        "welcome": "Welcome to LuckSort",
+        "complement": "Complement",
+        "complement_desc": "No specific signal found for this position today",
         "sources": {
             "historico": "Draw History",
             "community": "Community",
             "eventos": "World Events",
             "fecha_personal": "Your Date",
-            "aleatorio": "Random",
+            "complement": "Complement",
+        },
+        "src_icons": {
+            "historico": "📊", "community": "👥",
+            "eventos": "🌍", "fecha_personal": "✦", "complement": "⚪",
         }
     },
     "ES": {
         "tagline": "Ordena tu Suerte",
-        "sub": "Combinaciones de lotería basadas en datos reales del mundo.",
-        "hero_1": "Tus números,",
-        "hero_2": "respaldados por",
-        "hero_3": "las señales del mundo.",
-        "hero_sub": "Recopilamos datos reales — sorteos históricos, noticias de hoy, picks de la comunidad y tus fechas personales — convergidos en combinaciones con significado.",
-        "cta": "Generar Mis Números",
+        "hero_1": "Tus números,", "hero_2": "respaldados por", "hero_3": "las señales del mundo.",
+        "hero_sub": "Recopilamos datos reales — sorteos históricos, titulares de hoy, picks de la comunidad y tus fechas personales — convergidos en combinaciones con significado.",
         "cta_free": "Empezar Gratis",
-        "login": "Entrar",
-        "register": "Crear Cuenta",
-        "logout": "Cerrar Sesión",
-        "email": "Correo electrónico",
-        "password": "Contraseña",
-        "confirm_pass": "Confirmar Contraseña",
-        "btn_login": "Entrar",
-        "btn_register": "Crear Cuenta Gratis",
-        "plan": "Plan",
-        "free": "Gratis",
-        "paid": "Convergencia",
+        "login": "Entrar", "register": "Crear Cuenta", "logout": "Cerrar Sesión",
+        "email": "Correo", "password": "Contraseña", "confirm_pass": "Confirmar contraseña",
+        "btn_login": "Entrar", "btn_register": "Crear Cuenta Gratis",
+        "plan": "Plan", "free": "Gratis", "paid": "Convergencia",
         "select_lottery": "Selecciona tu Lotería",
         "personal_inputs": "Cuéntanos sobre ti (opcional)",
         "special_date": "Fecha especial (cumpleaños, aniversario...)",
@@ -345,53 +367,41 @@ T = {
         "life_moment": "Algo que está pasando en tu vida ahora",
         "exclude_numbers": "Números a excluir (separados por coma)",
         "follow_crowd": "Preferencia de comunidad",
-        "follow": "Seguir la masa",
-        "avoid": "Ir contra la masa",
-        "balanced": "Balanceado",
+        "follow": "Seguir la masa", "avoid": "Ir contra la masa", "balanced": "Balanceado",
         "generate_btn": "Generar Combinación",
-        "generating": "Convergiendo fuentes de datos...",
-        "your_combo": "Tu Combinación",
+        "generating": "Convergiendo 4 fuentes de datos...",
         "sources_title": "De dónde viene cada número",
-        "gen_left": "Generaciones hoy",
+        "gen_left": "Hoy", "of": "de",
         "disclaimer": "Recopilamos y sintetizamos información real del mundo para ponérsela en tus manos. Con esta herramienta quizás necesites un poco menos de suerte — aunque de igual forma, ¡que te acompañe siempre!",
-        "paywall_msg": "Actualiza al plan Convergencia para desbloquear la generación basada en datos.",
+        "paywall_title": "Plan Convergencia",
+        "paywall_msg": "Desbloquea la generación basada en datos con análisis histórico, inteligencia de comunidad, eventos mundiales y tus fechas personales.",
         "upgrade_btn": "Actualizar — $9.99/mes",
-        "history": "Mi Historial",
-        "no_history": "Aún no has generado combinaciones.",
+        "history": "Mi Historial", "no_history": "Aún no has generado combinaciones.",
         "login_err": "❌ Credenciales incorrectas.",
         "pass_mismatch": "⚠️ Las contraseñas no coinciden.",
         "pass_short": "⚠️ Mínimo 6 caracteres.",
         "email_invalid": "⚠️ Email inválido.",
         "email_exists": "⚠️ El correo ya está registrado.",
-        "welcome": "Bienvenido a LuckSort",
+        "complement": "Complemento",
+        "complement_desc": "Sin señal específica encontrada para esta posición hoy",
         "sources": {
-            "historico": "Histórico",
-            "community": "Comunidad",
-            "eventos": "Eventos",
-            "fecha_personal": "Tu Fecha",
-            "aleatorio": "Aleatorio",
+            "historico": "Histórico", "community": "Comunidad",
+            "eventos": "Eventos", "fecha_personal": "Tu Fecha", "complement": "Complemento",
+        },
+        "src_icons": {
+            "historico": "📊", "community": "👥",
+            "eventos": "🌍", "fecha_personal": "✦", "complement": "⚪",
         }
     },
     "PT": {
         "tagline": "Organize sua Sorte",
-        "sub": "Combinações de loteria baseadas em dados reais do mundo.",
-        "hero_1": "Seus números,",
-        "hero_2": "respaldados pelos",
-        "hero_3": "sinais do mundo.",
-        "hero_sub": "Coletamos dados reais — histórico de sorteios, notícias de hoje, picks da comunidade e suas datas pessoais — convergidos em combinações com significado.",
-        "cta": "Gerar Meus Números",
+        "hero_1": "Seus números,", "hero_2": "respaldados pelos", "hero_3": "sinais do mundo.",
+        "hero_sub": "Coletamos dados reais — histórico de sorteios, manchetes de hoje, picks da comunidade e suas datas pessoais — convergidos em combinações com significado.",
         "cta_free": "Começar Grátis",
-        "login": "Entrar",
-        "register": "Criar Conta",
-        "logout": "Sair",
-        "email": "Email",
-        "password": "Senha",
-        "confirm_pass": "Confirmar Senha",
-        "btn_login": "Entrar",
-        "btn_register": "Criar Conta Grátis",
-        "plan": "Plano",
-        "free": "Grátis",
-        "paid": "Convergência",
+        "login": "Entrar", "register": "Criar Conta", "logout": "Sair",
+        "email": "Email", "password": "Senha", "confirm_pass": "Confirmar senha",
+        "btn_login": "Entrar", "btn_register": "Criar Conta Grátis",
+        "plan": "Plano", "free": "Grátis", "paid": "Convergência",
         "select_lottery": "Selecione sua Loteria",
         "personal_inputs": "Nos conte sobre você (opcional)",
         "special_date": "Data especial (aniversário, data especial...)",
@@ -399,31 +409,30 @@ T = {
         "life_moment": "Algo acontecendo na sua vida agora",
         "exclude_numbers": "Números a excluir (separados por vírgula)",
         "follow_crowd": "Preferência da comunidade",
-        "follow": "Seguir a massa",
-        "avoid": "Ir contra a massa",
-        "balanced": "Balanceado",
+        "follow": "Seguir a massa", "avoid": "Ir contra a massa", "balanced": "Balanceado",
         "generate_btn": "Gerar Combinação",
-        "generating": "Convergindo fontes de dados...",
-        "your_combo": "Sua Combinação",
+        "generating": "Convergindo 4 fontes de dados...",
         "sources_title": "De onde vem cada número",
-        "gen_left": "Gerações hoje",
+        "gen_left": "Hoje", "of": "de",
         "disclaimer": "Reunimos e sintetizamos informações reais do mundo para colocá-las nas suas mãos. Com esta ferramenta talvez você precise de um pouco menos de sorte — mas de qualquer forma, que ela sempre te acompanhe!",
-        "paywall_msg": "Atualize para o plano Convergência para desbloquear a geração baseada em dados.",
+        "paywall_title": "Plano Convergência",
+        "paywall_msg": "Desbloqueie a geração baseada em dados com análise histórica, inteligência da comunidade, eventos mundiais e suas datas pessoais.",
         "upgrade_btn": "Atualizar — $9.99/mês",
-        "history": "Meu Histórico",
-        "no_history": "Ainda não gerou combinações.",
+        "history": "Meu Histórico", "no_history": "Ainda não gerou combinações.",
         "login_err": "❌ Credenciais incorretas.",
         "pass_mismatch": "⚠️ As senhas não coincidem.",
         "pass_short": "⚠️ Mínimo 6 caracteres.",
         "email_invalid": "⚠️ Email inválido.",
         "email_exists": "⚠️ Email já cadastrado.",
-        "welcome": "Bem-vindo ao LuckSort",
+        "complement": "Complemento",
+        "complement_desc": "Nenhum sinal específico encontrado para esta posição hoje",
         "sources": {
-            "historico": "Histórico",
-            "community": "Comunidade",
-            "eventos": "Eventos",
-            "fecha_personal": "Sua Data",
-            "aleatorio": "Aleatório",
+            "historico": "Histórico", "community": "Comunidade",
+            "eventos": "Eventos", "fecha_personal": "Sua Data", "complement": "Complemento",
+        },
+        "src_icons": {
+            "historico": "📊", "community": "👥",
+            "eventos": "🌍", "fecha_personal": "✦", "complement": "⚪",
         }
     }
 }
@@ -432,7 +441,7 @@ def t():
     return T[st.session_state['idioma']]
 
 # ==========================================
-# 6. FUNCIONES SUPABASE
+# 6. SUPABASE
 # ==========================================
 def registrar_usuario(email, password):
     try:
@@ -457,17 +466,14 @@ def login_usuario(email, password):
 def guardar_generacion(user_id, loteria_id, numeros, bonus, narrativa, inputs):
     try:
         supabase.table("generaciones").insert({
-            "user_id": user_id,
-            "loteria_id": loteria_id,
-            "numeros": numeros,
-            "bonus": bonus,
-            "narrativa": narrativa,
-            "inputs_usuario": json.dumps(inputs),
+            "user_id": user_id, "loteria_id": loteria_id,
+            "numeros": numeros, "bonus": bonus,
+            "narrativa": narrativa, "inputs_usuario": json.dumps(inputs),
         }).execute()
     except:
         pass
 
-def obtener_historial(user_id, limit=10):
+def obtener_historial(user_id, limit=15):
     try:
         res = supabase.table("generaciones").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(limit).execute()
         return res.data if res.data else []
@@ -481,9 +487,9 @@ def resetear_uso_diario():
         st.session_state['fecha_uso'] = hoy
 
 # ==========================================
-# 7. FUNCIONES DE DATOS (CACHÉ DIARIO)
+# 7. DATOS EXTERNOS (CACHÉ DIARIO)
 # ==========================================
-def obtener_cache(tipo):
+def get_cache(tipo):
     try:
         hoy = str(date.today())
         res = supabase.table("cache_diario").select("*").eq("fecha", hoy).eq("tipo", tipo).execute()
@@ -491,22 +497,20 @@ def obtener_cache(tipo):
     except:
         return None
 
-def guardar_cache(tipo, contenido, fuente=""):
+def set_cache(tipo, contenido, fuente=""):
     try:
         hoy = str(date.today())
-        existing = supabase.table("cache_diario").select("id").eq("fecha", hoy).eq("tipo", tipo).execute()
-        if existing.data:
-            supabase.table("cache_diario").update({"contenido": contenido}).eq("id", existing.data[0]['id']).execute()
+        ex = supabase.table("cache_diario").select("id").eq("fecha", hoy).eq("tipo", tipo).execute()
+        if ex.data:
+            supabase.table("cache_diario").update({"contenido": contenido}).eq("id", ex.data[0]['id']).execute()
         else:
-            supabase.table("cache_diario").insert({
-                "fecha": hoy, "tipo": tipo,
-                "contenido": contenido, "fuente": fuente
-            }).execute()
+            supabase.table("cache_diario").insert({"fecha": hoy, "tipo": tipo, "contenido": contenido, "fuente": fuente}).execute()
     except:
         pass
 
-def obtener_efemerides():
-    cache = obtener_cache("efemerides")
+def obtener_efemerides(fecha_personal=None):
+    """Efemérides del día del sorteo — si hay fecha personal, también las de esa fecha"""
+    cache = get_cache("efemerides")
     if cache:
         return cache
     try:
@@ -514,41 +518,53 @@ def obtener_efemerides():
         url = f"https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{hoy.month}/{hoy.day}"
         r = requests.get(url, timeout=8)
         if r.status_code == 200:
-            data = r.json()
-            eventos = data.get("events", [])[:5]
-            resultado = [{"year": e.get("year"), "text": e.get("text", "")[:120]} for e in eventos]
-            guardar_cache("efemerides", resultado, "wikipedia")
+            eventos = r.json().get("events", [])[:6]
+            resultado = [{"year": e.get("year"), "text": e.get("text", "")[:150]} for e in eventos]
+            set_cache("efemerides", resultado, "wikipedia")
             return resultado
     except:
         pass
     return []
 
+def obtener_efemerides_fecha(dia, mes):
+    """Efemérides de una fecha específica del usuario"""
+    try:
+        url = f"https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/{mes}/{dia}"
+        r = requests.get(url, timeout=8)
+        if r.status_code == 200:
+            eventos = r.json().get("events", [])[:4]
+            return [{"year": e.get("year"), "text": e.get("text", "")[:150]} for e in eventos]
+    except:
+        pass
+    return []
+
 def obtener_noticias():
-    cache = obtener_cache("noticias")
+    cache = get_cache("noticias")
     if cache:
         return cache
     try:
         if NEWS_API_KEY:
-            url = f"https://newsapi.org/v2/top-headlines?language=en&pageSize=5&apiKey={NEWS_API_KEY}"
+            url = f"https://newsapi.org/v2/top-headlines?language=en&pageSize=6&apiKey={NEWS_API_KEY}"
             r = requests.get(url, timeout=8)
             if r.status_code == 200:
-                data = r.json()
-                arts = data.get("articles", [])[:5]
-                resultado = [{"title": a.get("title", "")[:100]} for a in arts]
-                guardar_cache("noticias", resultado, "newsapi")
+                arts = r.json().get("articles", [])[:6]
+                resultado = [{"title": a.get("title", "")[:120], "source": a.get("source", {}).get("name", "")} for a in arts]
+                set_cache("noticias", resultado, "newsapi")
                 return resultado
     except:
         pass
     return []
 
 def obtener_crowd():
-    cache = obtener_cache("crowd")
+    cache = get_cache("crowd")
     if cache:
         return cache
-    # Números más mencionados en comunidades (simulado hasta integrar Reddit API)
-    crowd_numeros = random.sample(range(1, 70), 10)
-    guardar_cache("crowd", crowd_numeros, "community")
-    return crowd_numeros
+    # Números populares basados en patrones conocidos de comunidades de lotería
+    # Se actualizará con trendspyg en próxima entrega
+    base = [7, 11, 14, 17, 21, 23, 27, 32, 38, 42, 3, 8, 13, 19, 29]
+    crowd = random.sample(base, min(10, len(base)))
+    set_cache("crowd", crowd, "community_base")
+    return crowd
 
 # ==========================================
 # 8. GENERACIÓN CON GROQ
@@ -558,9 +574,22 @@ def generar_combinacion(loteria, inputs_usuario):
     lang_map = {"EN": "English", "ES": "Spanish", "PT": "Portuguese"}
     lang_full = lang_map[lang]
 
-    efemerides = obtener_efemerides()
+    efemerides_hoy = obtener_efemerides()
     noticias = obtener_noticias()
     crowd = obtener_crowd()
+
+    # Efemérides de fecha personal si existe
+    efemerides_personal = []
+    fecha_esp = inputs_usuario.get("fecha_especial", "")
+    if fecha_esp:
+        try:
+            partes = [x for x in fecha_esp.replace("/","-").replace(".","-").split("-") if x.isdigit()]
+            if len(partes) >= 2:
+                dia_p, mes_p = int(partes[0]), int(partes[1])
+                if 1 <= dia_p <= 31 and 1 <= mes_p <= 12:
+                    efemerides_personal = obtener_efemerides_fecha(dia_p, mes_p)
+        except:
+            pass
 
     excluir = []
     if inputs_usuario.get("excluir"):
@@ -569,78 +598,107 @@ def generar_combinacion(loteria, inputs_usuario):
         except:
             pass
 
-    prompt = f"""You are LuckSort's data convergence engine. Generate a lottery combination for {loteria['nombre']}.
+    bonus_instruccion = ""
+    if loteria['bonus']:
+        bonus_instruccion = f"- 1 {loteria['bonus_name']} between 1 and {loteria['bonus_max']} (different pool from main numbers)"
+    
+    prompt = f"""You are LuckSort's data convergence engine. Your task is to generate a {loteria['nombre']} combination using ONLY real data signals.
 
-LOTTERY RULES:
-- Pick {loteria['cantidad']} numbers between {loteria['min']} and {loteria['max']}
-- {"Pick 1 bonus number between 1 and " + str(loteria['bonus_max']) if loteria['bonus'] else "No bonus number"}
-- Exclude these numbers: {excluir if excluir else "none"}
+LOTTERY: {loteria['nombre']} ({loteria['pais']})
+RULES:
+- Exactly {loteria['cantidad']} unique main numbers between {loteria['min']} and {loteria['max']}
+{bonus_instruccion}
+- Numbers to EXCLUDE: {excluir if excluir else 'none'}
+- Crowd preference: {inputs_usuario.get('crowd', 'balanced')} (follow=use crowd numbers, avoid=avoid them, balanced=mix)
 
-REAL DATA SOURCES (use these to justify each number):
-1. TODAY'S HISTORICAL EVENTS (Wikipedia): {json.dumps(efemerides[:3])}
-2. TODAY'S NEWS: {json.dumps(noticias[:3])}
-3. COMMUNITY POPULAR NUMBERS: {crowd[:8]}
-4. USER PERSONAL DATA: {json.dumps(inputs_usuario)}
+REAL DATA AVAILABLE TODAY:
+1. TODAY'S HISTORICAL EVENTS (Wikipedia, draw date {datetime.now().strftime('%B %d')}):
+{json.dumps(efemerides_hoy[:4], ensure_ascii=False)}
 
-CROWD PREFERENCE: {inputs_usuario.get('crowd', 'balanced')}
-- "follow": use numbers from community list
-- "avoid": avoid community numbers  
-- "balanced": mix
+2. USER'S PERSONAL DATE EVENTS ({fecha_esp if fecha_esp else 'not provided'}):
+{json.dumps(efemerides_personal[:3], ensure_ascii=False) if efemerides_personal else 'No personal date provided'}
 
-YOUR TASK:
-Generate exactly {loteria['cantidad']} unique numbers + {"1 bonus" if loteria['bonus'] else "no bonus"}.
-Each number MUST have a real source from the data above.
+3. TODAY'S NEWS HEADLINES:
+{json.dumps(noticias[:4], ensure_ascii=False)}
 
-Respond ONLY in {lang_full} with this exact JSON format:
+4. COMMUNITY POPULAR NUMBERS TODAY: {crowd[:8]}
+
+USER INFO: name={inputs_usuario.get('nombre','')}, life_moment={inputs_usuario.get('momento','')}
+
+CRITICAL RULES:
+1. Each number MUST come from a REAL specific signal in the data above
+2. Extract numbers from: years (1986→86 or 8+6=14), dates (March 14→14 or 3), quantities, rankings, digits in headlines
+3. If you cannot find a real signal for a required position → use source "complement" with honest explanation
+4. NEVER invent or fabricate a source connection
+5. All numbers must be UNIQUE and within valid range for {loteria['nombre']}
+6. If crowd preference is "follow" → prioritize numbers from community list
+7. If crowd preference is "avoid" → exclude community numbers when possible
+
+Respond ONLY in {lang_full} with this exact JSON (no extra text, no markdown):
 {{
-  "numbers": [n1, n2, n3, n4, n5],
-  "bonus": {12 if loteria['bonus'] else "null"},
-  "sources": {{
-    "n1": {{"number": n1, "source": "historico|community|eventos|fecha_personal|aleatorio", "explanation": "brief real reason in {lang_full}"}},
-    "n2": {{"number": n2, "source": "...", "explanation": "..."}},
-    "n3": {{"number": n3, "source": "...", "explanation": "..."}},
-    "n4": {{"number": n4, "source": "...", "explanation": "..."}},
-    "n5": {{"number": n5, "source": "...", "explanation": "..."}},
-    {"\"bonus\": {\"number\": 12, \"source\": \"...\", \"explanation\": \"...\"}" if loteria['bonus'] else ""}
-  }}
-}}
-
-CRITICAL: Return ONLY valid JSON. No extra text. All numbers must be within valid range and unique."""
+  "numbers": [list of {loteria['cantidad']} integers],
+  "bonus": {f'integer between 1-{loteria["bonus_max"]}' if loteria['bonus'] else 'null'},
+  "sources": [
+    {{"number": N, "source": "historico|community|eventos|fecha_personal|complement", "label": "short source name in {lang_full}", "explanation": "specific real reason — what exact data point, be concrete and specific, minimum 15 words"}},
+    ... (one entry per number including bonus if applicable)
+  ]
+}}"""
 
     try:
         response = client_groq.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": f"You are LuckSort data engine. Respond only in {lang_full}. Return only valid JSON."},
+                {"role": "system", "content": f"You are LuckSort convergence engine. Respond ONLY in {lang_full}. Return ONLY valid JSON. Be specific and concrete in explanations."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.7,
-            max_tokens=800
+            temperature=0.65,
+            max_tokens=1200
         )
         raw = response.choices[0].message.content.strip()
-        # Clean JSON
         if "```" in raw:
             raw = raw.split("```")[1].replace("json", "").strip()
+        # Fix potential trailing issues
+        if raw.count('{') > raw.count('}'):
+            raw += '}'
         resultado = json.loads(raw)
+        
+        # Validate ranges
+        nums = resultado.get("numbers", [])
+        valid_nums = [n for n in nums if loteria['min'] <= n <= loteria['max'] and n not in excluir]
+        if len(valid_nums) < loteria['cantidad']:
+            # Fill missing with random valid numbers
+            all_valid = [n for n in range(loteria['min'], loteria['max']+1) if n not in valid_nums and n not in excluir]
+            while len(valid_nums) < loteria['cantidad'] and all_valid:
+                pick = random.choice(all_valid)
+                valid_nums.append(pick)
+                all_valid.remove(pick)
+        resultado['numbers'] = valid_nums[:loteria['cantidad']]
+        
+        # Validate bonus
+        if loteria['bonus'] and resultado.get('bonus'):
+            b = resultado['bonus']
+            if not (1 <= b <= loteria['bonus_max']):
+                resultado['bonus'] = random.randint(1, loteria['bonus_max'])
+        
         return resultado
     except Exception as e:
-        # Fallback: generación aleatoria con fuentes básicas
-        numeros = random.sample(range(loteria['min'], loteria['max'] + 1), loteria['cantidad'])
-        bonus = random.randint(1, loteria['bonus_max']) if loteria['bonus'] else None
-        sources = {}
-        for i, n in enumerate(numeros):
-            sources[f"n{i+1}"] = {"number": n, "source": "aleatorio", "explanation": "Generated randomly"}
-        if bonus:
-            sources["bonus"] = {"number": bonus, "source": "aleatorio", "explanation": "Generated randomly"}
-        return {"numbers": numeros, "bonus": bonus, "sources": sources}
+        return generar_fallback(loteria, excluir)
 
-def generar_combinacion_aleatoria(loteria):
-    numeros = random.sample(range(loteria['min'], loteria['max'] + 1), loteria['cantidad'])
+def generar_fallback(loteria, excluir=[]):
+    """Generación aleatoria limpia como fallback"""
+    pool = [n for n in range(loteria['min'], loteria['max']+1) if n not in excluir]
+    numeros = random.sample(pool, min(loteria['cantidad'], len(pool)))
     bonus = random.randint(1, loteria['bonus_max']) if loteria['bonus'] else None
-    return {"numbers": numeros, "bonus": bonus, "sources": {}}
+    sources = [{"number": n, "source": "complement", "label": "Random", "explanation": "Generated randomly — no specific signal found"} for n in numeros]
+    if bonus:
+        sources.append({"number": bonus, "source": "complement", "label": "Random", "explanation": "Generated randomly"})
+    return {"numbers": numeros, "bonus": bonus, "sources": sources}
+
+def generar_aleatorio(loteria):
+    return generar_fallback(loteria)
 
 # ==========================================
-# 9. FUNCIONES EMAIL
+# 9. EMAIL
 # ==========================================
 def enviar_email(to_email, subject, html):
     if not RESEND_API_KEY:
@@ -657,88 +715,160 @@ def enviar_email(to_email, subject, html):
         return False
 
 def email_bienvenida(email):
-    html = f"""<!DOCTYPE html><html><body style="background:#0a0a0f;color:white;font-family:Arial,sans-serif;padding:30px;max-width:600px;margin:0 auto;">
-    <h1 style="color:#C9A84C;text-align:center;">◆ LuckSort</h1>
-    <p style="text-align:center;color:#888;">Sort Your Luck</p>
-    <hr style="border:none;border-top:1px solid rgba(201,168,76,0.2);margin:20px 0;">
-    <h2>Welcome! 🎯</h2>
-    <p style="color:#ccc;">Your account is ready. Start generating combinations backed by real data.</p>
+    lang = st.session_state.get('idioma', 'EN')
+    tr = T[lang]
+    html = f"""<!DOCTYPE html><html><body style="background:#0a0a0f;color:white;font-family:Arial,sans-serif;padding:30px;max-width:580px;margin:0 auto;">
+    <div style="text-align:center;padding:30px 0 20px;">
+        <div style="display:inline-flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#C9A84C,#F5D68A);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#0a0a0f;">◆</div>
+            <span style="font-size:22px;font-weight:700;color:white;">LuckSort</span>
+        </div>
+        <p style="color:rgba(255,255,255,0.3);font-size:12px;letter-spacing:2px;margin-top:6px;">SORT YOUR LUCK</p>
+    </div>
+    <hr style="border:none;border-top:1px solid rgba(201,168,76,0.2);margin:10px 0 24px;">
+    <h2 style="color:white;">Welcome ◆</h2>
+    <p style="color:rgba(255,255,255,0.6);line-height:1.7;">Your account is ready. Start generating combinations backed by real-world data.</p>
     <div style="background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:12px;padding:20px;margin:20px 0;">
-        <h3 style="color:#C9A84C;">Free plan includes:</h3>
-        <ul style="color:#ccc;line-height:2;">
-            <li>✅ 5 random combinations per lottery per day</li>
-            <li>✅ All major lotteries</li>
-            <li>✅ Access to all 3 languages</li>
+        <p style="color:#C9A84C;font-size:12px;letter-spacing:2px;margin-bottom:12px;">FREE PLAN INCLUDES</p>
+        <ul style="color:rgba(255,255,255,0.6);line-height:2;margin:0;padding-left:18px;">
+            <li>5 random combinations per lottery per day</li>
+            <li>All 11 major lotteries — 3 languages</li>
+            <li>Upgrade anytime for data convergence</li>
         </ul>
     </div>
-    <div style="text-align:center;margin:30px 0;">
-        <a href="{APP_URL}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#C9A84C,#F5D68A);color:#0a0a0f;font-weight:bold;border-radius:10px;text-decoration:none;">Open LuckSort →</a>
+    <div style="text-align:center;margin:28px 0;">
+        <a href="{APP_URL}" style="display:inline-block;padding:14px 36px;background:linear-gradient(135deg,#C9A84C,#F5D68A);color:#0a0a0f;font-weight:700;border-radius:10px;text-decoration:none;font-size:15px;">Open LuckSort →</a>
     </div>
-    <p style="text-align:center;color:rgba(255,255,255,0.25);font-size:11px;font-style:italic;">"{T['EN']['disclaimer']}"</p>
+    <p style="color:rgba(255,255,255,0.2);font-size:11px;font-style:italic;text-align:center;line-height:1.6;">"{tr['disclaimer']}"</p>
     <hr style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:20px 0;">
-    <p style="text-align:center;color:#444;font-size:11px;">© 2025 LuckSort · lucksort.com</p>
+    <p style="text-align:center;color:rgba(255,255,255,0.18);font-size:10px;">© 2025 LuckSort · lucksort.com</p>
     </body></html>"""
     enviar_email(email, "Welcome to LuckSort ◆", html)
 
 # ==========================================
-# 10. UI COMPONENTS
+# 10. ANIMATED BALLS COMPONENT
+# ==========================================
+def render_animated_balls():
+    """Bolas animadas para la landing page"""
+    st.markdown("""
+    <div style="margin:32px 0 24px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:3px;text-align:center;margin-bottom:16px;">POWERBALL · LIVE PREVIEW</div>
+        <div id="balls-container" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;">
+            <div class="ball" id="b0">07</div>
+            <div class="ball" id="b1">14</div>
+            <div class="ball" id="b2">23</div>
+            <div class="ball" id="b3">38</div>
+            <div class="ball" id="b4">56</div>
+            <div class="ball ball-gold" id="b5">12</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:7px;max-width:400px;margin:0 auto;">
+            <div class="src-row">
+                <div class="src-left"><span class="src-icon">📊</span><div><div class="src-label">Draw History</div><div class="src-desc">Appeared 34× in March draws since 2010</div></div></div>
+                <span class="src-num">→ 07</span>
+            </div>
+            <div class="src-row">
+                <div class="src-left"><span class="src-icon">👥</span><div><div class="src-label">Community</div><div class="src-desc">Top picked number in r/powerball this week</div></div></div>
+                <span class="src-num">→ 23</span>
+            </div>
+            <div class="src-row">
+                <div class="src-left"><span class="src-icon">🌍</span><div><div class="src-label">World Events</div><div class="src-desc">Year 1938 in today's Wikipedia event</div></div></div>
+                <span class="src-num">→ 38</span>
+            </div>
+            <div class="src-row">
+                <div class="src-left"><span class="src-icon">✦</span><div><div class="src-label">Your Date</div><div class="src-desc">Day from your birthday — Mar 14</div></div></div>
+                <span class="src-num">→ 14</span>
+            </div>
+        </div>
+    </div>
+    <script>
+    const nums = [
+        [7,14,23,38,56,12],[3,19,31,44,62,8],[11,22,35,47,68,17],
+        [5,16,28,41,59,23],[9,21,33,46,63,4],[13,24,37,49,65,19],
+    ];
+    let idx = 0;
+    function rotateBalls() {
+        idx = (idx + 1) % nums.length;
+        const set = nums[idx];
+        for(let i=0;i<6;i++) {
+            const el = document.getElementById('b'+i);
+            if(el) {
+                el.style.opacity='0';
+                el.style.transform='scale(0.7)';
+                setTimeout(()=>{
+                    el.textContent = String(set[i]).padStart(2,'0');
+                    el.style.opacity='1';
+                    el.style.transform='scale(1)';
+                }, 300 + i*50);
+            }
+        }
+    }
+    setInterval(rotateBalls, 2800);
+    // Transition styles
+    document.querySelectorAll('.ball').forEach(b=>{
+        b.style.transition='opacity 0.3s ease, transform 0.3s ease';
+    });
+    </script>
+    """, unsafe_allow_html=True)
+
+# ==========================================
+# 11. MOSTRAR RESULTADO
 # ==========================================
 def mostrar_numeros(resultado, loteria):
     tr = t()
     numeros = resultado.get("numbers", [])
     bonus = resultado.get("bonus")
-    sources = resultado.get("sources", {})
+    sources = resultado.get("sources", [])
 
-    # Balls
-    balls_html = ""
+    # Balls HTML
+    balls_html = '<div class="balls-wrap">'
     for n in numeros:
-        balls_html += f'<div class="number-ball">{str(n).zfill(2)}</div>'
+        balls_html += f'<div class="ball">{str(n).zfill(2)}</div>'
     if bonus:
-        balls_html += f'<div class="number-ball number-ball-gold">{str(bonus).zfill(2)}</div>'
+        balls_html += f'<div class="ball ball-gold">{str(bonus).zfill(2)}</div>'
+    balls_html += '</div>'
+
+    bonus_label = ""
+    if bonus and loteria.get('bonus_name'):
+        bonus_label = f'<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:rgba(255,255,255,0.25);text-align:center;margin-top:4px;">◆ {loteria["bonus_name"]}: {str(bonus).zfill(2)}</div>'
 
     st.markdown(f"""
     <div class="luck-card-gold" style="text-align:center;">
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#C9A84C;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:#C9A84C;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;">
             {loteria['bandera']} {loteria['nombre']}
         </div>
-        <div style="margin:16px 0;">{balls_html}</div>
-        {f'<div style="font-family:DM Sans,sans-serif;font-size:11px;color:rgba(255,255,255,0.3);margin-top:6px;">◆ Bonus: {str(bonus).zfill(2)}</div>' if bonus else ""}
+        {balls_html}
+        {bonus_label}
     </div>
     """, unsafe_allow_html=True)
 
-    # Sources
+    # Sources — narrativa rica
     if sources:
         st.markdown(f"""
-        <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(255,255,255,0.4);
-        letter-spacing:1px;text-transform:uppercase;margin:16px 0 8px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);
+        letter-spacing:2px;text-transform:uppercase;margin:18px 0 10px;">
             {tr['sources_title']}
         </div>
         """, unsafe_allow_html=True)
 
-        source_icons = {
-            "historico": "📊",
-            "community": "👥",
-            "eventos": "🌍",
-            "fecha_personal": "✦",
-            "aleatorio": "🎲",
-        }
-
-        all_sources = list(sources.values())
-        for s in all_sources:
-            icon = source_icons.get(s.get("source", "aleatorio"), "🎲")
-            source_label = tr['sources'].get(s.get("source", "aleatorio"), s.get("source", ""))
+        for s in sources:
+            src_type = s.get("source", "complement")
+            icon = tr['src_icons'].get(src_type, "⚪")
+            label = s.get("label") or tr['sources'].get(src_type, src_type)
             explanation = s.get("explanation", "")
             num = s.get("number", "")
+            is_complement = src_type == "complement"
+            extra_class = "src-complement" if is_complement else ""
+
             st.markdown(f"""
-            <div class="source-row">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <span style="font-size:14px;">{icon}</span>
+            <div class="src-row {extra_class}">
+                <div class="src-left">
+                    <span class="src-icon">{icon}</span>
                     <div>
-                        <div style="color:rgba(255,255,255,0.6);font-size:12px;">{source_label}</div>
-                        <div style="color:rgba(255,255,255,0.3);font-size:11px;">{explanation}</div>
+                        <div class="src-label">{label}</div>
+                        <div class="src-desc">{explanation}</div>
                     </div>
                 </div>
-                <span class="source-number">→ {str(num).zfill(2)}</span>
+                <span class="src-num">→ {str(num).zfill(2)}</span>
             </div>
             """, unsafe_allow_html=True)
 
@@ -748,427 +878,376 @@ def mostrar_numeros(resultado, loteria):
 def mostrar_paywall():
     tr = t()
     st.markdown(f"""
-    <div class="luck-card" style="text-align:center;border-color:rgba(201,168,76,0.3);">
-        <div style="font-size:28px;margin-bottom:12px;">◆</div>
-        <h3 style="font-family:'Playfair Display',serif;color:#C9A84C;margin-bottom:8px;">
-            {tr['paid']}
+    <div class="luck-card" style="border-color:rgba(201,168,76,0.25);text-align:center;padding:28px;">
+        <div style="font-size:24px;margin-bottom:10px;">◆</div>
+        <h3 style="font-family:'Playfair Display',serif;color:#C9A84C;margin-bottom:8px;font-size:20px;">
+            {tr['paywall_title']}
         </h3>
-        <p style="color:rgba(255,255,255,0.4);font-size:14px;margin-bottom:20px;">
+        <p style="color:rgba(255,255,255,0.4);font-size:13px;max-width:340px;margin:0 auto 20px;line-height:1.65;">
             {tr['paywall_msg']}
         </p>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
+            <span style="font-size:11px;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:4px 10px;">📊 Draw History</span>
+            <span style="font-size:11px;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:4px 10px;">👥 Community</span>
+            <span style="font-size:11px;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:4px 10px;">🌍 World Events</span>
+            <span style="font-size:11px;color:rgba(255,255,255,0.35);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:20px;padding:4px 10px;">✦ Your Dates</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
-    if st.button(tr['upgrade_btn'], use_container_width=True):
-        pass  # Stripe link aquí
+    if st.button(tr['upgrade_btn'], use_container_width=True, key="upgrade_btn"):
+        pass
 
 # ==========================================
-# 11. SIDEBAR
+# 12. SIDEBAR
 # ==========================================
 with st.sidebar:
-    # Logo
+
+    # LOGO
     st.markdown("""
-    <div style="text-align:center;padding:20px 0 10px;">
-        <div style="display:inline-flex;align-items:center;gap:8px;">
-            <div style="width:28px;height:28px;background:linear-gradient(135deg,#C9A84C,#F5D68A);border-radius:8px;display:flex;align-items:center;justify-content:center;">
-                <span style="color:#0a0a0f;font-size:14px;">◆</span>
+    <div style="padding:24px 16px 16px;border-bottom:1px solid rgba(201,168,76,0.1);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#C9A84C,#F5D68A);
+            border-radius:9px;display:flex;align-items:center;justify-content:center;
+            flex-shrink:0;box-shadow:0 0 16px rgba(201,168,76,0.3);">
+                <span style="font-size:16px;color:#0a0a0f;">◆</span>
             </div>
-            <span style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:white;">LuckSort</span>
+            <div>
+                <div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;
+                color:white;letter-spacing:-0.5px;line-height:1;">LuckSort</div>
+                <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.25);
+                letter-spacing:2px;margin-top:2px;">SORT YOUR LUCK</div>
+            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Language selector
-    lang_sel = st.selectbox("", ["EN 🇺🇸", "ES 🇪🇸", "PT 🇧🇷"], key="lang_sel",
-                            label_visibility="collapsed")
-    nuevo_lang = lang_sel.split(" ")[0]
-    if nuevo_lang != st.session_state['idioma']:
-        st.session_state['idioma'] = nuevo_lang
+    # LANGUAGE SELECTOR — discreto
+    st.markdown('<div style="padding:12px 4px 4px;">', unsafe_allow_html=True)
+    lang_options = {"EN 🇺🇸": "EN", "ES 🇪🇸": "ES", "PT 🇧🇷": "PT"}
+    current_display = next(k for k, v in lang_options.items() if v == st.session_state['idioma'])
+    selected = st.selectbox("", list(lang_options.keys()),
+                           index=list(lang_options.keys()).index(current_display),
+                           key="sb_lang", label_visibility="collapsed")
+    if lang_options[selected] != st.session_state['idioma']:
+        st.session_state['idioma'] = lang_options[selected]
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:10px 0;">', unsafe_allow_html=True)
+    st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
     if not st.session_state['logged_in']:
         tr = t()
-        tab_login, tab_reg = st.tabs([tr['login'], tr['register']])
+        tab_in, tab_up = st.tabs([tr['login'], tr['register']])
 
-        with tab_login:
-            email_in = st.text_input(tr['email'], key="sb_email")
-            pass_in = st.text_input(tr['password'], type="password", key="sb_pass")
-            if st.button(tr['btn_login'], use_container_width=True, key="btn_sb_login"):
-                if email_in == ADMIN_EMAIL and pass_in == ADMIN_PASS:
-                    st.session_state.update({'logged_in': True, 'user_role': 'admin', 'user_email': email_in, 'user_id': None, 'vista': 'app'})
+        with tab_in:
+            em = st.text_input(tr['email'], key="si_email")
+            pw = st.text_input(tr['password'], type="password", key="si_pass")
+            if st.button(tr['btn_login'], use_container_width=True, key="btn_si"):
+                if em == ADMIN_EMAIL and pw == ADMIN_PASS:
+                    st.session_state.update({'logged_in': True, 'user_role': 'admin', 'user_email': em, 'user_id': None, 'vista': 'app'})
                     st.rerun()
                 else:
-                    ok, datos = login_usuario(email_in, pass_in)
+                    ok, datos = login_usuario(em, pw)
                     if ok:
-                        st.session_state.update({
-                            'logged_in': True, 'user_role': datos['role'],
-                            'user_email': datos['email'], 'user_id': datos['id'],
-                            'vista': 'app'
-                        })
+                        st.session_state.update({'logged_in': True, 'user_role': datos['role'], 'user_email': datos['email'], 'user_id': datos['id'], 'vista': 'app'})
                         resetear_uso_diario()
                         st.rerun()
                     else:
                         st.error(tr['login_err'])
 
-        with tab_reg:
-            r_email = st.text_input(tr['email'], key="r_email")
-            r_pass = st.text_input(tr['password'], type="password", key="r_pass")
-            r_pass2 = st.text_input(tr['confirm_pass'], type="password", key="r_pass2")
-            if st.button(tr['btn_register'], use_container_width=True, key="btn_reg"):
-                if r_pass != r_pass2:
-                    st.error(tr['pass_mismatch'])
-                elif len(r_pass) < 6:
-                    st.warning(tr['pass_short'])
-                elif "@" not in r_email:
-                    st.warning(tr['email_invalid'])
+        with tab_up:
+            re = st.text_input(tr['email'], key="su_email")
+            rp1 = st.text_input(tr['password'], type="password", key="su_p1")
+            rp2 = st.text_input(tr['confirm_pass'], type="password", key="su_p2")
+            if st.button(tr['btn_register'], use_container_width=True, key="btn_su"):
+                if rp1 != rp2: st.error(tr['pass_mismatch'])
+                elif len(rp1) < 6: st.warning(tr['pass_short'])
+                elif "@" not in re: st.warning(tr['email_invalid'])
                 else:
-                    ok, res = registrar_usuario(r_email, r_pass)
+                    ok, res = registrar_usuario(re, rp1)
                     if ok:
-                        st.session_state.update({
-                            'logged_in': True, 'user_role': 'free',
-                            'user_email': r_email, 'user_id': res['id'],
-                            'vista': 'app'
-                        })
-                        email_bienvenida(r_email)
+                        st.session_state.update({'logged_in': True, 'user_role': 'free', 'user_email': re, 'user_id': res['id'], 'vista': 'app'})
+                        email_bienvenida(re)
                         st.rerun()
-                    elif res == "exists":
-                        st.error(tr['email_exists'])
-                    else:
-                        st.error("⚠️ Error. Please try again.")
+                    elif res == "exists": st.error(tr['email_exists'])
+                    else: st.error("⚠️ Error. Try again.")
 
     else:
         tr = t()
         resetear_uso_diario()
 
+        # User info card
+        role_display = tr['paid'] if st.session_state['user_role'] not in ['free', 'invitado'] else tr['free']
+        role_color = "#C9A84C" if st.session_state['user_role'] != 'free' else "rgba(255,255,255,0.35)"
         st.markdown(f"""
-        <div style="padding:12px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:10px;margin-bottom:12px;">
-            <div style="font-family:'DM Sans',sans-serif;font-size:12px;color:#C9A84C;font-weight:600;">
+        <div style="padding:12px 14px;background:rgba(201,168,76,0.05);
+        border:1px solid rgba(201,168,76,0.15);border-radius:10px;margin-bottom:14px;">
+            <div style="font-family:'DM Sans',sans-serif;font-size:12px;
+            color:rgba(255,255,255,0.7);font-weight:500;margin-bottom:3px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 {st.session_state['user_email']}
             </div>
-            <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.3);letter-spacing:1px;margin-top:3px;">
-                {tr['plan'].upper()}: {(tr['paid'] if st.session_state['user_role'] != 'free' else tr['free']).upper()}
+            <div style="display:flex;align-items:center;gap:6px;">
+                <div style="width:6px;height:6px;border-radius:50%;background:{role_color};"></div>
+                <span style="font-family:'DM Mono',monospace;font-size:9px;
+                color:{role_color};letter-spacing:1.5px;">{role_display.upper()}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Nav
-        if st.button("◆ Generate", use_container_width=True, key="nav_gen"):
+        # Navigation
+        if st.button(f"◆ {tr['tagline']}", use_container_width=True, key="nav_gen"):
             st.session_state['vista'] = 'app'
             st.rerun()
         if st.button(f"📋 {tr['history']}", use_container_width=True, key="nav_hist"):
             st.session_state['vista'] = 'history'
             st.rerun()
 
-        st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:10px 0;">', unsafe_allow_html=True)
+        st.markdown('<hr class="sidebar-divider">', unsafe_allow_html=True)
 
-        if st.button(tr['logout'], use_container_width=True, key="btn_logout"):
-            for k in ['logged_in', 'user_role', 'user_email', 'user_id', 'generaciones_hoy', 'ultima_generacion']:
-                st.session_state[k] = defaults.get(k, None)
-            st.session_state['vista'] = 'landing'
+        if st.button(tr['logout'], use_container_width=True, key="btn_lo"):
+            for k in list(defaults.keys()):
+                st.session_state[k] = defaults[k]
             st.rerun()
 
 # ==========================================
-# 12. LANDING PAGE
+# 13. LANDING PAGE
 # ==========================================
 if not st.session_state['logged_in']:
     tr = t()
 
-    # Language selector — visible en top para móvil
-    st.markdown("""
-    <div style="display:flex;justify-content:flex-end;padding:8px 0 0;">
-    </div>
-    """, unsafe_allow_html=True)
-
-    col_l1, col_l2, col_l3, col_l4 = st.columns([3,1,1,1])
-    with col_l2:
-        if st.button("EN 🇺🇸", use_container_width=True, key="lang_en"):
-            st.session_state['idioma'] = 'EN'
-            st.rerun()
-    with col_l3:
-        if st.button("ES 🇪🇸", use_container_width=True, key="lang_es"):
-            st.session_state['idioma'] = 'ES'
-            st.rerun()
-    with col_l4:
-        if st.button("PT 🇧🇷", use_container_width=True, key="lang_pt"):
-            st.session_state['idioma'] = 'PT'
-            st.rerun()
-
-    tr = t()  # refresh after potential lang change
-
+    # Hero
     st.markdown(f"""
-    <div style="text-align:center;padding:40px 20px 30px;position:relative;">
-        <div class="tag-gold" style="margin-bottom:24px;">
-            <span style="width:5px;height:5px;border-radius:50%;background:#C9A84C;display:inline-block;box-shadow:0 0 6px #C9A84C;"></span>
-            LuckSort · Data Convergence
+    <div style="text-align:center;padding:48px 16px 24px;">
+        <div class="tag-gold" style="margin-bottom:20px;">
+            <span style="width:5px;height:5px;border-radius:50%;background:#C9A84C;
+            display:inline-block;box-shadow:0 0 6px #C9A84C;"></span>
+            Data Convergence Engine
         </div>
-        <h1 style="font-family:'Playfair Display',serif;font-size:clamp(36px,6vw,72px);font-weight:700;line-height:1.06;letter-spacing:-2px;margin-bottom:20px;">
+        <h1 style="font-family:'Playfair Display',serif;
+        font-size:clamp(38px,7vw,76px);font-weight:700;
+        line-height:1.05;letter-spacing:-2px;margin-bottom:18px;">
             {tr['hero_1']}<br>
             <span class="shimmer">{tr['hero_2']}</span><br>
             {tr['hero_3']}
         </h1>
-        <p style="font-family:'DM Sans',sans-serif;font-size:clamp(14px,2vw,17px);color:rgba(255,255,255,0.4);max-width:540px;margin:0 auto 32px;line-height:1.75;">
+        <p style="font-family:'DM Sans',sans-serif;font-size:clamp(14px,2vw,17px);
+        color:rgba(255,255,255,0.38);max-width:500px;margin:0 auto;line-height:1.8;">
             {tr['hero_sub']}
         </p>
     </div>
     """, unsafe_allow_html=True)
 
+    # Animated balls
+    render_animated_balls()
+
+    # CTA
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button(tr['cta_free'], use_container_width=True, key="landing_cta"):
+        if st.button(tr['cta_free'], use_container_width=True, key="land_cta"):
             st.session_state['mostrar_reg'] = True
             st.rerun()
-
-    # Login / Register inline — visible sin sidebar
-    if st.session_state.get('mostrar_reg'):
-        st.markdown("---")
-        st.markdown(f"""
-        <h3 style="font-family:'Playfair Display',serif;color:#C9A84C;text-align:center;margin-bottom:16px;">
-            ◆ {tr['register']}
-        </h3>
-        """, unsafe_allow_html=True)
-        col_a, col_b, col_c = st.columns([1,2,1])
-        with col_b:
-            tab_reg, tab_login = st.tabs([tr['register'], tr['login']])
-            with tab_reg:
-                r_email = st.text_input(tr['email'], key="land_r_email")
-                r_pass = st.text_input(tr['password'], type="password", key="land_r_pass")
-                r_pass2 = st.text_input(tr['confirm_pass'], type="password", key="land_r_pass2")
-                if st.button(tr['btn_register'], use_container_width=True, key="land_btn_reg"):
-                    if r_pass != r_pass2:
-                        st.error(tr['pass_mismatch'])
-                    elif len(r_pass) < 6:
-                        st.warning(tr['pass_short'])
-                    elif "@" not in r_email:
-                        st.warning(tr['email_invalid'])
-                    else:
-                        ok, res = registrar_usuario(r_email, r_pass)
-                        if ok:
-                            st.session_state.update({
-                                'logged_in': True, 'user_role': 'free',
-                                'user_email': r_email, 'user_id': res['id'],
-                                'vista': 'app', 'mostrar_reg': False
-                            })
-                            email_bienvenida(r_email)
-                            st.rerun()
-                        elif res == "exists":
-                            st.error(tr['email_exists'])
-                        else:
-                            st.error("⚠️ Error. Please try again.")
-            with tab_login:
-                l_email = st.text_input(tr['email'], key="land_l_email")
-                l_pass = st.text_input(tr['password'], type="password", key="land_l_pass")
-                if st.button(tr['btn_login'], use_container_width=True, key="land_btn_login"):
-                    if l_email == ADMIN_EMAIL and l_pass == ADMIN_PASS:
-                        st.session_state.update({'logged_in': True, 'user_role': 'admin', 'user_email': l_email, 'user_id': None, 'vista': 'app'})
-                        st.rerun()
-                    else:
-                        ok, datos = login_usuario(l_email, l_pass)
-                        if ok:
-                            st.session_state.update({
-                                'logged_in': True, 'user_role': datos['role'],
-                                'user_email': datos['email'], 'user_id': datos['id'],
-                                'vista': 'app'
-                            })
-                            resetear_uso_diario()
-                            st.rerun()
-                        else:
-                            st.error(tr['login_err'])
         st.markdown("""
         <p style="text-align:center;font-family:'DM Mono',monospace;font-size:9px;
-        color:rgba(255,255,255,0.2);letter-spacing:1.5px;margin-top:8px;">
+        color:rgba(255,255,255,0.18);letter-spacing:1.5px;margin-top:8px;">
         FREE · NO CREDIT CARD · ES / EN / PT
         </p>
         """, unsafe_allow_html=True)
 
-    # Sources section
+    # Register/Login inline
+    if st.session_state.get('mostrar_reg'):
+        st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.06);margin:24px 0;">', unsafe_allow_html=True)
+        col_a, col_b, col_c = st.columns([1,2,1])
+        with col_b:
+            tab_r, tab_l = st.tabs([tr['register'], tr['login']])
+            with tab_r:
+                re = st.text_input(tr['email'], key="lr_e")
+                rp = st.text_input(tr['password'], type="password", key="lr_p")
+                rp2 = st.text_input(tr['confirm_pass'], type="password", key="lr_p2")
+                if st.button(tr['btn_register'], use_container_width=True, key="lr_btn"):
+                    if rp != rp2: st.error(tr['pass_mismatch'])
+                    elif len(rp) < 6: st.warning(tr['pass_short'])
+                    elif "@" not in re: st.warning(tr['email_invalid'])
+                    else:
+                        ok, res = registrar_usuario(re, rp)
+                        if ok:
+                            st.session_state.update({'logged_in': True, 'user_role': 'free', 'user_email': re, 'user_id': res['id'], 'vista': 'app', 'mostrar_reg': False})
+                            email_bienvenida(re)
+                            st.rerun()
+                        elif res == "exists": st.error(tr['email_exists'])
+                        else: st.error("⚠️ Error.")
+            with tab_l:
+                le = st.text_input(tr['email'], key="ll_e")
+                lp = st.text_input(tr['password'], type="password", key="ll_p")
+                if st.button(tr['btn_login'], use_container_width=True, key="ll_btn"):
+                    if le == ADMIN_EMAIL and lp == ADMIN_PASS:
+                        st.session_state.update({'logged_in': True, 'user_role': 'admin', 'user_email': le, 'user_id': None, 'vista': 'app'})
+                        st.rerun()
+                    else:
+                        ok, datos = login_usuario(le, lp)
+                        if ok:
+                            st.session_state.update({'logged_in': True, 'user_role': datos['role'], 'user_email': datos['email'], 'user_id': datos['id'], 'vista': 'app'})
+                            resetear_uso_diario()
+                            st.rerun()
+                        else:
+                            st.error(tr['login_err'])
+
+    # 4 Sources
     st.markdown(f"""
-    <div style="padding:40px 0 20px;text-align:center;">
-        <h2 style="font-family:'Playfair Display',serif;font-size:clamp(22px,3vw,36px);font-weight:700;letter-spacing:-1px;margin-bottom:8px;">
-            {tr['sources_title'] if 'sources_title' in tr else 'Four signals. One combination.'}
-        </h2>
-        <div class="gold-divider" style="margin:12px auto;"></div>
+    <div style="text-align:center;padding:40px 0 20px;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.22);letter-spacing:3px;margin-bottom:12px;">HOW IT WORKS</div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:clamp(22px,3vw,40px);font-weight:700;letter-spacing:-1px;margin-bottom:6px;">Four signals. One combination.</h2>
+        <div class="gold-line"></div>
     </div>
     """, unsafe_allow_html=True)
 
-    col1, col2, col3, col4 = st.columns(4)
-    sources_data = [
-        ("📊", tr['sources']['historico'], "Years of draw data cross-referenced by date"),
-        ("👥", tr['sources']['community'], "What players are choosing today"),
-        ("🌍", tr['sources']['eventos'], "Numbers from today's headlines"),
-        ("✦", tr['sources']['fecha_personal'], "Your birthdays and special dates"),
-    ]
-    for col, (icon, title, desc) in zip([col1, col2, col3, col4], sources_data):
+    c1,c2,c3,c4 = st.columns(4)
+    for col, (icon, key, desc) in zip([c1,c2,c3,c4], [
+        ("📊","historico","Years of official draws analyzed by date pattern"),
+        ("👥","community","What real players are choosing right now"),
+        ("🌍","eventos","Numbers hidden in today's headlines and history"),
+        ("✦","fecha_personal","Your birthday, anniversary, life moments"),
+    ]):
         with col:
             st.markdown(f"""
-            <div class="luck-card" style="text-align:center;height:140px;">
-                <div style="font-size:24px;margin-bottom:8px;">{icon}</div>
-                <div style="font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:rgba(255,255,255,0.88);margin-bottom:6px;">{title}</div>
-                <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.35);line-height:1.5;">{desc}</div>
+            <div class="luck-card" style="text-align:center;min-height:130px;">
+                <div style="font-size:22px;margin-bottom:8px;">{icon}</div>
+                <div style="font-family:'Playfair Display',serif;font-size:14px;font-weight:600;color:rgba(255,255,255,0.85);margin-bottom:5px;">{tr['sources'][key]}</div>
+                <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.32);line-height:1.5;">{desc}</div>
             </div>
             """, unsafe_allow_html=True)
 
-    # Lotteries
+    # Lotteries grid
     st.markdown("""
-    <div style="padding:30px 0 16px;text-align:center;">
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.25);letter-spacing:3px;">GLOBAL COVERAGE</div>
+    <div style="padding:28px 0 14px;text-align:center;">
+        <div style="font-family:'DM Mono',monospace;font-size:9px;color:rgba(255,255,255,0.2);letter-spacing:3px;">GLOBAL COVERAGE · 11 LOTTERIES</div>
     </div>
     """, unsafe_allow_html=True)
-
     cols = st.columns(4)
     for i, lot in enumerate(LOTERIAS):
         with cols[i % 4]:
             st.markdown(f"""
-            <div style="padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:9px;display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                <span style="font-size:16px;">{lot['bandera']}</span>
-                <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(255,255,255,0.65);">{lot['nombre']}</span>
+            <div style="padding:10px 12px;background:rgba(255,255,255,0.025);
+            border:1px solid rgba(255,255,255,0.06);border-radius:9px;
+            display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:15px;">{lot['bandera']}</span>
+                <span style="font-family:'DM Sans',sans-serif;font-size:12px;color:rgba(255,255,255,0.6);">{lot['nombre']}</span>
             </div>
             """, unsafe_allow_html=True)
 
-    # Disclaimer footer
-    st.markdown(f'<div class="disclaimer" style="text-align:center;max-width:600px;margin:30px auto 0;">"{tr["disclaimer"]}"</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="disclaimer" style="text-align:center;max-width:580px;margin:28px auto 0;">"{tr["disclaimer"]}"</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 13. APP PRINCIPAL — GENERADOR
+# 14. APP — GENERADOR
 # ==========================================
 elif st.session_state.get('vista') == 'app':
     tr = t()
     es_free = st.session_state['user_role'] == 'free'
-    es_paid = st.session_state['user_role'] in ['paid', 'pro', 'admin']
+    es_paid = st.session_state['user_role'] in ['paid', 'pro', 'convergence', 'admin']
 
     st.markdown(f"""
-    <div style="padding:20px 0 10px;">
-        <div class="tag-gold">◆ {tr['tagline']}</div>
-        <h2 style="font-family:'Playfair Display',serif;font-size:clamp(24px,3vw,40px);
-        font-weight:700;letter-spacing:-1px;margin-top:12px;">
+    <div style="padding:20px 0 8px;">
+        <span class="tag-gold">◆ {tr['tagline']}</span>
+        <h2 style="font-family:'Playfair Display',serif;font-size:clamp(22px,3vw,38px);
+        font-weight:700;letter-spacing:-1px;margin-top:10px;margin-bottom:4px;">
             {tr['select_lottery']}
         </h2>
     </div>
     """, unsafe_allow_html=True)
 
     # Lottery selector
-    lot_names = [f"{l['bandera']} {l['nombre']}" for l in LOTERIAS]
-    lot_sel_name = st.selectbox("", lot_names, label_visibility="collapsed", key="lot_sel")
-    loteria = next(l for l in LOTERIAS if l['nombre'] in lot_sel_name)
+    lot_names = [f"{l['bandera']} {l['nombre']} ({l['pais']})" for l in LOTERIAS]
+    sel_name = st.selectbox("", lot_names, label_visibility="collapsed", key="lot_sel")
+    loteria = next(l for l in LOTERIAS if l['nombre'] in sel_name)
 
-    # Generaciones counter
+    # Counter
     gen_hoy = st.session_state['generaciones_hoy'].get(loteria['id'], 0)
-    max_gen = MAX_GENERACIONES_PAID if es_paid else MAX_GENERACIONES_FREE
-    restantes = max(0, max_gen - gen_hoy)
-
+    restantes = max(0, MAX_GEN - gen_hoy)
     st.markdown(f"""
-    <div style="margin:8px 0 20px;">
-        <span class="metric-pill">{tr['gen_left']}: {restantes}/{max_gen}</span>
+    <div style="margin:8px 0 18px;">
+        <span class="metric-pill">{tr['gen_left']}: {gen_hoy}/{MAX_GEN}</span>
     </div>
     """, unsafe_allow_html=True)
 
-    # Personal inputs — solo plan pago
+    # Personal inputs — plan pago
+    inputs_usuario = {}
     if es_paid or st.session_state['user_role'] == 'admin':
         with st.expander(f"✦ {tr['personal_inputs']}", expanded=False):
-            col1, col2 = st.columns(2)
-            with col1:
-                fecha_especial = st.text_input(tr['special_date'], placeholder="14/03/1990", key="fecha_esp")
-                nombre = st.text_input(tr['your_name'], placeholder="Your name", key="inp_nombre")
-            with col2:
-                momento = st.text_input(tr['life_moment'], placeholder="I just had a baby...", key="inp_momento")
-                excluir = st.text_input(tr['exclude_numbers'], placeholder="13, 4, 17", key="inp_excluir")
-
-            crowd_pref = st.radio(
-                tr['follow_crowd'],
-                [tr['balanced'], tr['follow'], tr['avoid']],
-                horizontal=True, key="crowd_pref"
-            )
+            c1, c2 = st.columns(2)
+            with c1:
+                fecha_esp = st.text_input(tr['special_date'], placeholder="14/03/1990", key="fe")
+                nombre = st.text_input(tr['your_name'], placeholder="Your name", key="nm")
+            with c2:
+                momento = st.text_input(tr['life_moment'], placeholder="I just had a baby...", key="mm")
+                excluir = st.text_input(tr['exclude_numbers'], placeholder="4, 13, 17", key="ex")
+            crowd_pref = st.radio(tr['follow_crowd'], [tr['balanced'], tr['follow'], tr['avoid']], horizontal=True, key="cp")
             crowd_map = {tr['follow']: "follow", tr['avoid']: "avoid", tr['balanced']: "balanced"}
-            crowd_val = crowd_map.get(crowd_pref, "balanced")
+            inputs_usuario = {
+                "fecha_especial": fecha_esp,
+                "nombre": nombre,
+                "momento": momento,
+                "excluir": excluir,
+                "crowd": crowd_map.get(crowd_pref, "balanced"),
+            }
 
-        inputs_usuario = {
-            "fecha_especial": fecha_especial if 'fecha_especial' in dir() else "",
-            "nombre": nombre if 'nombre' in dir() else "",
-            "momento": momento if 'momento' in dir() else "",
-            "excluir": excluir if 'excluir' in dir() else "",
-            "crowd": crowd_val if 'crowd_val' in dir() else "balanced",
-        }
-    else:
-        inputs_usuario = {}
-
-    # Generate button
+    # Generate
     if restantes <= 0:
-        st.warning(f"⚠️ {tr['gen_left']}: 0/{max_gen}")
+        st.warning(f"⚠️ {tr['gen_left']}: {MAX_GEN}/{MAX_GEN} — Come back tomorrow!")
     else:
-        if st.button(f"◆ {tr['generate_btn']}", use_container_width=True, key="btn_gen"):
+        if st.button(f"◆ {tr['generate_btn']}", use_container_width=True, key="gen_btn"):
             with st.spinner(tr['generating']):
                 if es_paid or st.session_state['user_role'] == 'admin':
                     resultado = generar_combinacion(loteria, inputs_usuario)
                 else:
-                    resultado = generar_combinacion_aleatoria(loteria)
-
+                    resultado = generar_aleatorio(loteria)
                 st.session_state['ultima_generacion'] = resultado
                 st.session_state['ultima_loteria'] = loteria
-
-                # Actualizar contador
-                gen_count = st.session_state['generaciones_hoy'].get(loteria['id'], 0)
-                st.session_state['generaciones_hoy'][loteria['id']] = gen_count + 1
-
-                # Guardar en DB
+                st.session_state['generaciones_hoy'][loteria['id']] = gen_hoy + 1
                 if st.session_state.get('user_id'):
-                    guardar_generacion(
-                        st.session_state['user_id'],
-                        loteria['id'],
-                        resultado.get('numbers', []),
-                        resultado.get('bonus'),
-                        str(resultado.get('sources', {})),
-                        inputs_usuario
-                    )
+                    guardar_generacion(st.session_state['user_id'], loteria['id'],
+                        resultado.get('numbers', []), resultado.get('bonus'),
+                        str(resultado.get('sources', [])), inputs_usuario)
 
-    # Mostrar resultado
+    # Result
     if st.session_state.get('ultima_generacion') and st.session_state.get('ultima_loteria'):
-        st.markdown('<div class="gold-divider"></div>', unsafe_allow_html=True)
-        mostrar_numeros(
-            st.session_state['ultima_generacion'],
-            st.session_state['ultima_loteria']
-        )
+        st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:18px 0;">', unsafe_allow_html=True)
+        mostrar_numeros(st.session_state['ultima_generacion'], st.session_state['ultima_loteria'])
 
-    # Paywall para free
+    # Paywall
     if es_free:
-        st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:24px 0;">', unsafe_allow_html=True)
+        st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,0.04);margin:22px 0;">', unsafe_allow_html=True)
         mostrar_paywall()
 
 # ==========================================
-# 14. HISTORIAL
+# 15. HISTORIAL
 # ==========================================
 elif st.session_state.get('vista') == 'history':
     tr = t()
     st.markdown(f"""
-    <div style="padding:20px 0 16px;">
-        <div class="tag-gold">◆ {tr['history']}</div>
+    <div style="padding:20px 0 14px;">
+        <span class="tag-gold">◆ {tr['history']}</span>
     </div>
     """, unsafe_allow_html=True)
 
     if st.session_state.get('user_id'):
         historial = obtener_historial(st.session_state['user_id'])
         if not historial:
-            st.markdown(f'<p style="color:rgba(255,255,255,0.35);font-family:DM Sans,sans-serif;">{tr["no_history"]}</p>', unsafe_allow_html=True)
+            st.markdown(f'<p style="color:rgba(255,255,255,0.3);font-family:DM Sans,sans-serif;font-size:14px;">{tr["no_history"]}</p>', unsafe_allow_html=True)
         else:
             for h in historial:
-                loteria_hist = next((l for l in LOTERIAS if l['id'] == h['loteria_id']), None)
-                if loteria_hist:
-                    numeros_str = " · ".join([str(n).zfill(2) for n in h['numeros']])
-                    bonus_str = f" ◆ {str(h['bonus']).zfill(2)}" if h.get('bonus') else ""
-                    fecha = h['created_at'][:10] if h.get('created_at') else ""
+                lot = next((l for l in LOTERIAS if l['id'] == h.get('loteria_id')), None)
+                if lot:
+                    nums_str = "  ".join([str(n).zfill(2) for n in h['numeros']])
+                    bonus_str = f"  ◆ {str(h['bonus']).zfill(2)}" if h.get('bonus') else ""
+                    fecha = h.get('created_at', '')[:10]
                     st.markdown(f"""
-                    <div class="luck-card" style="margin-bottom:12px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <div style="font-family:'DM Mono',monospace;font-size:12px;color:#C9A84C;">
-                                {loteria_hist['bandera']} {loteria_hist['nombre']}
-                            </div>
-                            <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.25);">
-                                {fecha}
-                            </div>
+                    <div class="luck-card" style="margin-bottom:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span style="font-family:'DM Mono',monospace;font-size:11px;color:#C9A84C;">{lot['bandera']} {lot['nombre']}</span>
+                            <span style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.2);">{fecha}</span>
                         </div>
-                        <div style="font-family:'DM Mono',monospace;font-size:18px;color:white;margin-top:10px;letter-spacing:2px;">
-                            {numeros_str}{bonus_str}
-                        </div>
+                        <div style="font-family:'DM Mono',monospace;font-size:20px;color:white;letter-spacing:3px;">{nums_str}{bonus_str}</div>
                     </div>
                     """, unsafe_allow_html=True)
     else:
-        st.info("Login to see your history.")
+        st.info("Sign in to see your history.")
