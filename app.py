@@ -903,16 +903,48 @@ padding:14px 0 8px;border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:6p
   </div>
 </div>""", unsafe_allow_html=True)
 
-    lc1,lc2,lc3,lc4=st.columns([3,1,1,1])
-    with lc2:
-        if st.button("EN",key="l_en2",use_container_width=True):
+    # Idioma — compacto en HTML, sin botones de Streamlit
+    lang_now = st.session_state['idioma']
+    st.markdown(f"""
+<div style="display:flex;gap:6px;margin:8px 0 4px;">
+  <a href="?lang=EN" onclick="return false;" id="btn_en"
+    style="padding:4px 12px;border-radius:20px;font-family:'Courier New',monospace;
+    font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-decoration:none;
+    background:{'rgba(201,168,76,0.15)' if lang_now=='EN' else 'rgba(255,255,255,0.05)'};
+    border:1px solid {'rgba(201,168,76,0.4)' if lang_now=='EN' else 'rgba(255,255,255,0.1)'};
+    color:{'#C9A84C' if lang_now=='EN' else 'rgba(255,255,255,0.4)'};">EN</a>
+  <a href="?lang=ES" onclick="return false;" id="btn_es"
+    style="padding:4px 12px;border-radius:20px;font-family:'Courier New',monospace;
+    font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-decoration:none;
+    background:{'rgba(201,168,76,0.15)' if lang_now=='ES' else 'rgba(255,255,255,0.05)'};
+    border:1px solid {'rgba(201,168,76,0.4)' if lang_now=='ES' else 'rgba(255,255,255,0.1)'};
+    color:{'#C9A84C' if lang_now=='ES' else 'rgba(255,255,255,0.4)'};">ES</a>
+  <a href="?lang=PT" onclick="return false;" id="btn_pt"
+    style="padding:4px 12px;border-radius:20px;font-family:'Courier New',monospace;
+    font-size:10px;font-weight:700;letter-spacing:1.5px;cursor:pointer;text-decoration:none;
+    background:{'rgba(201,168,76,0.15)' if lang_now=='PT' else 'rgba(255,255,255,0.05)'};
+    border:1px solid {'rgba(201,168,76,0.4)' if lang_now=='PT' else 'rgba(255,255,255,0.1)'};
+    color:{'#C9A84C' if lang_now=='PT' else 'rgba(255,255,255,0.4)'};">PT</a>
+</div>
+""", unsafe_allow_html=True)
+
+    # Botones funcionales ocultos via CSS trick
+    hc1,hc2,hc3,hc4=st.columns([6,1,1,1])
+    with hc2:
+        if st.button("EN",key="l_en2"):
             st.session_state['idioma']='EN'; st.rerun()
-    with lc3:
-        if st.button("ES",key="l_es2",use_container_width=True):
+    with hc3:
+        if st.button("ES",key="l_es2"):
             st.session_state['idioma']='ES'; st.rerun()
-    with lc4:
-        if st.button("PT",key="l_pt2",use_container_width=True):
+    with hc4:
+        if st.button("PT",key="l_pt2"):
             st.session_state['idioma']='PT'; st.rerun()
+    st.markdown("""<style>
+    div[data-testid="column"]:nth-child(2) .stButton>button,
+    div[data-testid="column"]:nth-child(3) .stButton>button,
+    div[data-testid="column"]:nth-child(4) .stButton>button
+    {height:1px!important;opacity:0!important;padding:0!important;margin:-8px 0 0!important;min-height:0!important;}
+    </style>""", unsafe_allow_html=True)
     t=tr()
 
     st.markdown(f"""
