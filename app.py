@@ -50,27 +50,7 @@ section[data-testid="stSidebar"]>div:first-child{padding-top:0!important;}
 .stButton>button{background:linear-gradient(135deg,#C9A84C,#F5D68A)!important;color:#0a0a0f!important;font-family:'DM Sans',sans-serif!important;font-weight:600!important;border:none!important;border-radius:10px!important;width:100%!important;transition:all .2s!important;box-shadow:0 4px 14px rgba(201,168,76,.22)!important;}
 .stButton>button:hover{transform:translateY(-1px)!important;box-shadow:0 8px 22px rgba(201,168,76,.36)!important;}
 
-/* Language buttons — override gold style */
-.lang-col .stButton>button{
-  background:transparent!important;
-  color:rgba(255,255,255,.35)!important;
-  border:1px solid rgba(255,255,255,.12)!important;
-  border-radius:20px!important;
-  padding:2px 8px!important;
-  font-family:'DM Mono',monospace!important;
-  font-size:10px!important;
-  font-weight:700!important;
-  letter-spacing:1px!important;
-  box-shadow:none!important;
-  width:auto!important;
-  min-width:36px!important;
-}
-.lang-col-active .stButton>button{
-  background:rgba(201,168,76,.15)!important;
-  color:#C9A84C!important;
-  border:1px solid rgba(201,168,76,.4)!important;
-  box-shadow:none!important;
-}
+
 
 /* INPUTS */
 .stTextInput>div>div>input,.stTextArea>div>div>textarea{background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.1)!important;color:white!important;border-radius:8px!important;}
@@ -320,6 +300,13 @@ T = {
 },
 }
 def tr(): return T[st.session_state["idioma"]]
+
+def strip_html(text):
+    """Remove any HTML tags Groq may include in explanations"""
+    if not text: return ""
+    clean = re.sub(r'<[^>]+>', ' ', str(text))
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean
 
 # ==========================================
 # 6. CÁLCULOS MATEMÁTICOS PUROS
@@ -852,6 +839,31 @@ Responde SOLO en {lang_full}. Devuelve SOLO JSON válido:
         if "```" in raw: raw=raw.split("```")[1].replace("json","").strip()
         res=json.loads(raw)
 
+        # Limpiar HTML en explanations de Groq
+        for s in res.get("sources",[]):
+            s["explanation"] = strip_html(s.get("explanation",""))
+            s["math"] = strip_html(s.get("math",""))
+
+        # Enforcer diversidad: max 1 número por sistema simbólico
+        fuentes_usadas = {}
+        sources_limpios = []
+        sistemas_simbolicos = {"fibonacci","tesla","sagrada","numerologia","primos","fractal"}
+        for s in res.get("sources",[]):
+            fuente = s.get("source","complement")
+            if fuente in sistemas_simbolicos:
+                if fuente not in fuentes_usadas:
+                    fuentes_usadas[fuente] = True
+                    sources_limpios.append(s)
+                # Si ya se usó ese sistema, lo convierte en fuente del día
+                else:
+                    s["source"] = "eventos"
+                    s["label"] = s.get("label","")
+                    s["es_afin"] = True
+                    sources_limpios.append(s)
+            else:
+                sources_limpios.append(s)
+        res["sources"] = sources_limpios
+
         # Validar números
         nums=[n for n in res.get("numbers",[]) if loteria["min"]<=n<=loteria["max"] and n not in excluir]
         disp=[c["n"] for c in ordenados if c["n"] not in nums and c["n"] not in excluir]
@@ -1010,27 +1022,22 @@ padding:10px 0 10px;border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:8
   </div>
 </div>""", unsafe_allow_html=True)
 
-    # Botones idioma — pequeños, en fila, sin refresco de página completa
-    # Usan session_state puro para no perder el resultado generado
-    lc1,lc2,lc3,lc4=st.columns([5,1,1,1])
-    with lc2:
-        active="lang-col-active" if lang=="EN" else "lang-col"
-        st.markdown(f'<div class="{active}">', unsafe_allow_html=True)
-        if st.button("EN",key="hdr_en",use_container_width=False):
-            st.session_state["idioma"]="EN"; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    with lc3:
-        active="lang-col-active" if lang=="ES" else "lang-col"
-        st.markdown(f'<div class="{active}">', unsafe_allow_html=True)
-        if st.button("ES",key="hdr_es",use_container_width=False):
-            st.session_state["idioma"]="ES"; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
-    with lc4:
-        active="lang-col-active" if lang=="PT" else "lang-col"
-        st.markdown(f'<div class="{active}">', unsafe_allow_html=True)
-        if st.button("PT",key="hdr_pt",use_container_width=False):
-            st.session_state["idioma"]="PT"; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Idioma — selectbox compacto, preserva ultima_generacion en session_state
+    _,lang_col=st.columns([5,1])
+    with lang_col:
+        flags={"EN":"🇺🇸","ES":"🇪🇸","PT":"🇧🇷"}
+        opts=list(flags.keys())
+        new_lang=st.selectbox(
+            "",
+            [f"{flags[l]} {l}" for l in opts],
+            index=opts.index(lang),
+            key="hdr_lang",
+            label_visibility="collapsed"
+        )
+        chosen=new_lang.split()[-1]
+        if chosen!=lang:
+            st.session_state["idioma"]=chosen
+            st.rerun()
 
 def render_balls_landing():
     st.markdown("""
@@ -1082,7 +1089,7 @@ def render_resultado(resultado,loteria):
             icon=ICONS.get(src,"·")
             lbl=s.get("label") or t["sources"].get(src,src)
             math_line=s.get("math","")
-            exp=s.get("explanation","")
+            exp=strip_html(s.get("explanation",""))
             num=s.get("number","")
 
             if src=="complement":
