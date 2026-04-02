@@ -1257,59 +1257,61 @@ def email_combinacion(to,loteria,resultado):
 # 12. COMPONENTES UI
 # ==========================================
 def render_header():
-    """Header con logo + pills idioma discretas"""
-    lang=st.session_state["idioma"]
+    """Header con logo + selector idioma funcional"""
+    lang = st.session_state["idioma"]
 
-    # Pills idioma — pequeñas, discretas, sin banderas
-    lang_html = ""
-    for l in ["EN","ES","PT"]:
-        if l == lang:
-            style = "padding:3px 10px;border-radius:20px;font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1px;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);color:#C9A84C;cursor:default;"
-        else:
-            style = "padding:3px 10px;border-radius:20px;font-family:monospace;font-size:10px;font-weight:700;letter-spacing:1px;background:transparent;border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.3);cursor:default;"
-        lang_html += f'<span style="{style}">{l}</span>'
-
-    # Render header with pills embedded
+    # Logo
     st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:space-between;
-padding:10px 0 10px;border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:8px;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <div style="width:32px;height:32px;min-width:32px;background:linear-gradient(135deg,#C9A84C,#F5D68A);
-    border-radius:9px;display:flex;align-items:center;justify-content:center;
+<div style="display:flex;align-items:center;padding:10px 0 10px;
+border-bottom:1px solid rgba(201,168,76,0.1);margin-bottom:4px;">
+  <div style="display:flex;align-items:center;gap:10px;flex:1;">
+    <div style="width:32px;height:32px;min-width:32px;
+    background:linear-gradient(135deg,#C9A84C,#F5D68A);border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
     box-shadow:0 0 16px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
     <div>
-      <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
-      <div style="font-family:monospace;font-size:8px;color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
+      <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;
+      color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
+      <div style="font-family:monospace;font-size:8px;
+      color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
     </div>
   </div>
-  <div style="display:flex;gap:5px;align-items:center;">{lang_html}</div>
 </div>""", unsafe_allow_html=True)
 
-    # Botones funcionales ocultos — solo cambian estado, no afectan diseño
-    st.markdown("""<style>
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton>button,
-div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton>button,
-div[data-testid="stHorizontalBlock"] > div:nth-child(4) .stButton>button{
-  opacity:0!important;height:1px!important;min-height:0!important;
-  padding:0!important;margin:0!important;border:none!important;
-  box-shadow:none!important;pointer-events:auto!important;
-  position:absolute!important;
-}
-</style>""", unsafe_allow_html=True)
+    # Selector idioma — JS pinta las pills, Streamlit maneja el estado
+    st.markdown(f"""
+<script>
+(function(){{
+  function styleLangBtns(){{
+    var btns = window.parent.document.querySelectorAll('[data-testid="stButton"] button');
+    btns.forEach(function(btn){{
+      var txt = btn.innerText.trim();
+      if(txt==='EN'||txt==='ES'||txt==='PT'){{
+        btn.style.cssText='background:'+(txt==='{lang}'?'rgba(201,168,76,0.15)':'transparent')
+          +';color:'+(txt==='{lang}'?'#C9A84C':'rgba(255,255,255,0.35)')
+          +';border:1px solid '+(txt==='{lang}'?'rgba(201,168,76,0.4)':'rgba(255,255,255,0.12)')
+          +';border-radius:20px;padding:2px 10px;font-family:monospace;font-size:10px;'
+          +'font-weight:700;letter-spacing:1px;box-shadow:none;min-height:0;height:26px;'
+          +'width:auto;cursor:pointer;transition:all 0.2s;';
+      }}
+    }});
+  }}
+  setTimeout(styleLangBtns,100);
+  setTimeout(styleLangBtns,400);
+  setTimeout(styleLangBtns,800);
+}})();
+</script>""", unsafe_allow_html=True)
 
-    # Área invisible clickeable para cada idioma
-    lc1,lc2,lc3,lc4 = st.columns([5,1,1,1])
+    _, lc1, lc2, lc3 = st.columns([5,1,1,1])
+    with lc1:
+        if st.button("EN", key="hdr_en", use_container_width=False):
+            st.session_state["idioma"] = "EN"; st.rerun()
     with lc2:
-        if st.button("EN",key="hdr_en",use_container_width=True):
-            st.session_state["idioma"]="EN"; st.rerun()
+        if st.button("ES", key="hdr_es", use_container_width=False):
+            st.session_state["idioma"] = "ES"; st.rerun()
     with lc3:
-        if st.button("ES",key="hdr_es",use_container_width=True):
-            st.session_state["idioma"]="ES"; st.rerun()
-    with lc4:
-        if st.button("PT",key="hdr_pt",use_container_width=True):
-            st.session_state["idioma"]="PT"; st.rerun()
-    # Return early — header already rendered above
-    return
+        if st.button("PT", key="hdr_pt", use_container_width=False):
+            st.session_state["idioma"] = "PT"; st.rerun()
 
 def render_balls_landing():
     st.markdown("""
@@ -1515,41 +1517,39 @@ if not st.session_state["logged_in"]:
 
     render_balls_landing()
 
-    col1,col2,col3=st.columns([1,2,1])
-    with col2:
-        if st.button(t["cta_free"],use_container_width=True,key="land_cta"):
-            st.session_state["mostrar_reg"]=True; st.rerun()
-        st.markdown('<p style="text-align:center;font-family:monospace;font-size:9px;color:rgba(255,255,255,.16);letter-spacing:1.5px;margin-top:6px;">FREE · NO CREDIT CARD · ES / EN / PT</p>', unsafe_allow_html=True)
-
-    if st.session_state.get("mostrar_reg"):
-        st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:16px 0;">', unsafe_allow_html=True)
-        ca,cb,cc=st.columns([1,2,1])
-        with cb:
-            tab_r,tab_l=st.tabs([t["register"],t["login"]])
-            with tab_r:
-                re_=st.text_input(t["email"],key="lr_e"); rp=st.text_input(t["password"],type="password",key="lr_p"); rp2=st.text_input(t["confirm_pass"],type="password",key="lr_p2")
-                if st.button(t["btn_register"],use_container_width=True,key="lr_b"):
-                    if rp!=rp2: st.error(t["pass_mismatch"])
-                    elif len(rp)<6: st.warning(t["pass_short"])
-                    elif "@" not in re_: st.warning(t["email_invalid"])
-                    else:
-                        ok,res=registrar_usuario(re_,rp)
-                        if ok:
-                            st.session_state.update({"logged_in":True,"user_role":"free","user_email":re_,"user_id":res["id"],"vista":"app","mostrar_reg":False})
-                            email_bienvenida(re_); st.rerun()
-                        elif res=="exists": st.error(t["email_exists"])
-                        else: st.error("⚠️ Error.")
-            with tab_l:
-                le=st.text_input(t["email"],key="ll_e"); lp=st.text_input(t["password"],type="password",key="ll_p")
-                if st.button(t["btn_login"],use_container_width=True,key="ll_b"):
-                    if le==ADMIN_EMAIL and lp==ADMIN_PASS:
-                        st.session_state.update({"logged_in":True,"user_role":"admin","user_email":le,"user_id":None,"vista":"app"}); st.rerun()
-                    else:
-                        ok,datos=login_usuario(le,lp)
-                        if ok:
-                            st.session_state.update({"logged_in":True,"user_role":datos["role"],"user_email":datos["email"],"user_id":datos["id"],"vista":"app"})
-                            resetear_uso(); st.rerun()
-                        else: st.error(t["login_err"])
+    # Login/Register — siempre visible, sin botón intermedio
+    st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:4px 0 12px;">', unsafe_allow_html=True)
+    ca,cb,cc=st.columns([1,2,1])
+    with cb:
+        st.markdown(f'<p style="text-align:center;font-family:monospace;font-size:9px;color:rgba(255,255,255,.16);letter-spacing:1.5px;margin-bottom:10px;">FREE · NO CREDIT CARD · ES / EN / PT</p>', unsafe_allow_html=True)
+        tab_r,tab_l=st.tabs([t["register"],t["login"]])
+        with tab_r:
+            re_=st.text_input(t["email"],key="lr_e")
+            rp=st.text_input(t["password"],type="password",key="lr_p")
+            rp2=st.text_input(t["confirm_pass"],type="password",key="lr_p2")
+            if st.button(t["btn_register"],use_container_width=True,key="lr_b"):
+                if rp!=rp2: st.error(t["pass_mismatch"])
+                elif len(rp)<6: st.warning(t["pass_short"])
+                elif "@" not in re_: st.warning(t["email_invalid"])
+                else:
+                    ok,res=registrar_usuario(re_,rp)
+                    if ok:
+                        st.session_state.update({"logged_in":True,"user_role":"free","user_email":re_,"user_id":res["id"],"vista":"app"})
+                        email_bienvenida(re_); st.rerun()
+                    elif res=="exists": st.error(t["email_exists"])
+                    else: st.error("⚠️ Error.")
+        with tab_l:
+            le=st.text_input(t["email"],key="ll_e")
+            lp=st.text_input(t["password"],type="password",key="ll_p")
+            if st.button(t["btn_login"],use_container_width=True,key="ll_b"):
+                if le==ADMIN_EMAIL and lp==ADMIN_PASS:
+                    st.session_state.update({"logged_in":True,"user_role":"admin","user_email":le,"user_id":None,"vista":"app"}); st.rerun()
+                else:
+                    ok,datos=login_usuario(le,lp)
+                    if ok:
+                        st.session_state.update({"logged_in":True,"user_role":datos["role"],"user_email":datos["email"],"user_id":datos["id"],"vista":"app"})
+                        resetear_uso(); st.rerun()
+                    else: st.error(t["login_err"])
 
     st.markdown(f"""
 <div style="text-align:center;padding:22px 0 12px;">
