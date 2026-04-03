@@ -259,16 +259,53 @@ def obtener_reddit(loteria):
             "UK Lotto":"uklottery","Baloto":"colombia","Mega-Sena":"megasena","El Gordo":"spain",
             "La Primitiva":"spain","EuroJackpot":"eurojackpot","Canada Lotto":"lottery","Lotofacil":"brasil"}
     sub = subs.get(loteria["nombre"], "lottery"); nums = []
+    headers = {"User-Agent": "Mozilla/5.0 LuckSort/1.0"}
+
+    # Fuente 1: Arctic Shift (Pushshift alternativo gratuito, sin API key)
     try:
-        r = requests.get(f"https://www.reddit.com/r/{sub}/hot.json?limit=20",
-            headers={"User-Agent": "Mozilla/5.0 LuckSort/1.0"}, timeout=6)
+        r = requests.get(
+            f"https://arctic-shift.photon-reddit.com/api/posts/search",
+            params={"subreddit": sub, "limit": "25", "sort": "desc"},
+            headers=headers, timeout=8)
         if r.status_code == 200:
-            for p in r.json().get("data", {}).get("children", []):
-                txt = str(p.get("data",{}).get("title","")) + str(p.get("data",{}).get("selftext",""))
-                for n in re.findall(r'\b(\d{1,2})\b', txt):
+            posts = r.json().get("data", [])
+            for p in posts:
+                txt = str(p.get("title","")) + str(p.get("selftext",""))
+                for n in re.findall(r"(\d{1,2})", txt):
                     v = int(n)
                     if mn <= v <= mx: nums.append(v)
     except: pass
+
+    # Fuente 2: RapidAPI Reddit (si tiene key)
+    if not nums and RAPIDAPI_KEY:
+        try:
+            r = requests.get(
+                "https://reddit34.p.rapidapi.com/getPostsBySubreddit",
+                headers={"X-RapidAPI-Key": RAPIDAPI_KEY, "X-RapidAPI-Host": "reddit34.p.rapidapi.com"},
+                params={"subreddit": sub, "sort": "hot", "limit": "20"},
+                timeout=8)
+            if r.status_code == 200:
+                posts = r.json().get("data", {}).get("children", [])
+                for p in posts:
+                    txt = str(p.get("data",{}).get("title","")) + str(p.get("data",{}).get("selftext",""))
+                    for n in re.findall(r"(\d{1,2})", txt):
+                        v = int(n)
+                        if mn <= v <= mx: nums.append(v)
+        except: pass
+
+    # Fuente 3: Reddit JSON directo
+    if not nums:
+        try:
+            r = requests.get(f"https://www.reddit.com/r/{sub}/hot.json?limit=20",
+                headers=headers, timeout=6)
+            if r.status_code == 200:
+                for p in r.json().get("data", {}).get("children", []):
+                    txt = str(p.get("data",{}).get("title","")) + str(p.get("data",{}).get("selftext",""))
+                    for n in re.findall(r"(\d{1,2})", txt):
+                        v = int(n)
+                        if mn <= v <= mx: nums.append(v)
+        except: pass
+
     if nums:
         top = [{"n": n, "count": c} for n, c in Counter(nums).most_common(10)]
         set_cache(tipo, top); return top
@@ -488,11 +525,14 @@ SUENO: "{inputs.get('sueno','ninguno')}"
 CANDIDATOS disponibles (elige SOLO de esta lista):
 {json.dumps(validos[:50], ensure_ascii=False)}
 
-INSTRUCCIONES:
+INSTRUCCIONES CRITICAS:
 1. Elige exactamente {loteria['n']} numeros diferentes de la lista de candidatos
 2. Incluye favoritos obligatoriamente si estan en la lista
-3. Distribuye entre diferentes fuentes
-4. Si hay candidatos con fuente fibonacci/tesla/sagrada/primos disponibles, incluye al menos uno
+3. DISTRIBUCION OBLIGATORIA: si hay modulos multiples activos, incluye AL MENOS 1 numero de CADA modulo
+   - Si "math" en modulos: incluir minimo 1 fibonacci O tesla O sagrada O primos
+   - Si "holistic" en modulos: incluir minimo 1 numerologia O lunar
+   - Si "real" en modulos: incluir minimo 1 historico O community
+4. NO uses el mismo tipo de fuente para todos los numeros
 5. Bonus de pool SEPARADO: {f'elige entre 1-{loteria["bmax"]}' if loteria["bonus"] else 'null'}
 
 Para cada numero, escribe una narrativa experta en {lang_full}:
@@ -580,10 +620,22 @@ Responde SOLO JSON:
         sources = []
         for c in top[:loteria["n"]]:
             fuente, math_txt = determinar_fuente(c["n"], sets_mat, modulos)
-            sources.append({"number":c["n"],"source":fuente,"math":math_txt,"explanation":"Candidato seleccionado"})
+            narrativa_fallback = {
+                "fibonacci": f"El {c['n']} pertenece a la secuencia de Fibonacci — aparece de forma natural en la matematica universal",
+                "tesla": f"El {c['n']} es multiplo de 3, alineado con el patron 3-6-9 de Tesla",
+                "sagrada": f"El {c['n']} sigue la proporcion aurea phi — numero de la geometria sagrada",
+                "primos": f"El {c['n']} es primo — indivisible, unico en su posicion matematica",
+                "numerologia": f"El {c['n']} emerge de la reduccion numerologica de tus datos personales",
+                "lunar": f"El {c['n']} corresponde al dia del ciclo lunar actual",
+                "community": f"El {c['n']} fue mencionado por la comunidad de jugadores esta semana",
+                "historico": f"El {c['n']} lidera la frecuencia historica en {loteria['nombre']}",
+                "favorito": f"El {c['n']} es tu numero favorito — incluido por tu preferencia",
+                "eventos": f"El {c['n']} esta vinculado a eventos historicos de esta fecha",
+            }.get(fuente, f"El {c['n']} fue seleccionado por convergencia de datos")
+            sources.append({"number":c["n"],"source":fuente,"math":math_txt,"explanation":narrativa_fallback})
         if bonus:
             fuente_b, math_b = determinar_fuente(bonus, sets_mat, modulos)
-            sources.append({"number":bonus,"source":fuente_b,"math":math_b,"explanation":"Bonus"})
+            sources.append({"number":bonus,"source":fuente_b,"math":math_b,"explanation":f"Bonus {loteria.get('bname','')} seleccionado por frecuencia"})
         return {"numbers": nums, "bonus": bonus, "sources": sources}
 
 # ── SUPABASE ──
