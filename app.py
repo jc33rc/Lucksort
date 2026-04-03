@@ -823,42 +823,50 @@ def preparar_datos(loteria, inputs, modulos):
 
     # MÓDULO DATOS REALES
     if "real" in modulos:
-        # Análisis rico de frecuencias
         freq = analizar_frecuencias(loteria["nombre"])
-        
-        # Top general
-        for i,n in enumerate(freq.get("top_general",[])[:8]):
-            add({"n":n,"math":f"Top histórico #{i+1} en {loteria['nombre']} (2015-2024)","fuente":"historico","peso":4})
-        
-        # Top del día actual
-        for n in freq.get("top_dia",[])[:3]:
-            add({"n":n,"math":freq.get("narrativa",{}).get("dia",""),"fuente":"historico","peso":5})
-        
-        # Top del mes actual
-        for n in freq.get("top_mes",[])[:3]:
-            add({"n":n,"math":freq.get("narrativa",{}).get("mes",""),"fuente":"historico","peso":5})
-        
-        # Números fríos — estadísticamente vencidos
-        for n in freq.get("frios",[])[:3]:
-            mn2,mx2=loteria["min"],loteria["max"]
-            if mn2<=n<=mx2:
-                add({"n":n,"math":f"Frío estadístico — sin salir en semanas en {loteria['nombre']}","fuente":"historico","peso":2})
-        
-        # LotteryPost — comunidad real
-        lp = obtener_lotterypost(loteria["nombre"])
-        for item in lp[:6]:
-            add({"n":item["n"],"math":item["math"],"fuente":"community","peso":4})
-        
-        # Caixa API para loterías brasileñas
-        if loteria["nombre"] in ["Mega-Sena","Lotofácil"]:
-            caixa = obtener_caixa(loteria["nombre"])
-            for item in caixa:
-                add({"n":item["n"],"math":item["math"],"fuente":"historico","peso":5})
-        
-        # Reddit como complemento
-        reddit=obtener_reddit(loteria)
-        for item in reddit[:5]:
-            add({"n":item["n"],"math":item["math"],"fuente":"community","peso":3})
+
+        # ⊞ Histórico oficial
+        if inputs.get("use_hist", True):
+            for i,n in enumerate(freq.get("top_general",[])[:8]):
+                add({"n":n,"math":f"Top histórico #{i+1} en {loteria['nombre']} (2015-2024)","fuente":"historico","peso":4})
+            for n in freq.get("top_dia",[])[:3]:
+                add({"n":n,"math":freq.get("narrativa",{}).get("dia",""),"fuente":"historico","peso":5})
+            for n in freq.get("top_mes",[])[:3]:
+                add({"n":n,"math":freq.get("narrativa",{}).get("mes",""),"fuente":"historico","peso":5})
+            for n in freq.get("frios",[])[:2]:
+                if mn<=n<=mx:
+                    add({"n":n,"math":f"Número frío — sin salir en semanas en {loteria['nombre']}","fuente":"historico","peso":2})
+            if loteria["nombre"] in ["Mega-Sena","Lotofácil"]:
+                for item in obtener_caixa(loteria["nombre"]):
+                    add({"n":item["n"],"math":item["math"],"fuente":"historico","peso":5})
+
+        # ⊛ Comunidad
+        if inputs.get("use_comm", True):
+            for item in obtener_lotterypost(loteria["nombre"])[:6]:
+                add({"n":item["n"],"math":item["math"],"fuente":"community","peso":4})
+            for item in obtener_reddit(loteria)[:5]:
+                add({"n":item["n"],"math":item["math"],"fuente":"community","peso":3})
+
+        # ⊕ Eventos del mundo
+        if inputs.get("use_event", True):
+            efem=obtener_efemerides(hoy.month,hoy.day)
+            for ev in efem[:6]:
+                yr=ev.get("year",0)
+                if yr:
+                    y2=yr%100
+                    if mn<=y2<=mx: add({"n":y2,"math":f"{yr}: {ev.get('text','')[:50]}... → {y2}","fuente":"eventos","peso":2})
+            for art in obtener_noticias()[:4]:
+                for n in re.findall(r"(\d{1,2})",art.get("title","")):
+                    v=int(n)
+                    if mn<=v<=mx: add({"n":v,"math":f"Noticia hoy: '{art['title'][:40]}...'","fuente":"eventos","peso":1})
+            for v,m in [(hoy.day,f"Día {hoy.day} de hoy"),(hoy.month,f"Mes {hoy.month} actual"),(hoy.day+hoy.month,f"Día+Mes={hoy.day}+{hoy.month}={hoy.day+hoy.month}")]:
+                if mn<=v<=mx: add({"n":v,"math":m,"fuente":"eventos","peso":1})
+
+        # ⇌ Tasa de cambio
+        if inputs.get("use_tasa", False):
+            tasa=obtener_tasa()
+            for n in tasa.get("nums",[]):
+                if mn<=n<=mx: add({"n":n,"math":tasa.get("math",""),"fuente":"cambio","peso":1})
         # Wikipedia hoy
         efem=obtener_efemerides(hoy.month,hoy.day)
         for ev in efem[:6]:
@@ -881,37 +889,51 @@ def preparar_datos(loteria, inputs, modulos):
 
     # MÓDULO HOLÍSTICO
     if "holistic" in modulos:
-        # Numerología
-        num_data=calc_numerologia(inputs.get("nombre",""),inputs.get("fecha_especial",""))
-        for val in num_data.values():
-            add({**val,"peso":5})
-        for m in [11,22,33]:
-            if mn<=m<=mx: add({"n":m,"math":f"Número maestro {m}","fuente":"numerologia","peso":3})
-        # Fecha personal efemérides
-        fp=inputs.get("fecha_especial","")
-        if fp:
-            for nf in calc_fecha(fp,mn,mx): add({**nf,"peso":4})
-            partes=[x for x in re.split(r'[-/.]',fp) if x.isdigit()]
-            if len(partes)>=2:
-                try:
-                    d,m=int(partes[0]),int(partes[1])
-                    if 1<=d<=31 and 1<=m<=12:
-                        for ev in obtener_efemerides(m,d)[:3]:
-                            yr=ev.get("year",0)
-                            if yr:
-                                y2=yr%100
-                                if mn<=y2<=mx: add({"n":y2,"math":f"Tu fecha {d}/{m}: {yr}→{y2}","fuente":"fecha_personal","peso":3})
-                except: pass
-        # Lunar
-        lu=calc_lunar()
-        if mn<=lu["n"]<=mx: add({**lu,"peso":3})
+        # ᚨ Numerología
+        if inputs.get("use_num", False):
+            num_data=calc_numerologia(inputs.get("your_name",""),inputs.get("fecha_especial",""))
+            for val in num_data.values():
+                add({**val,"peso":5})
+            for m_n in [11,22,33]:
+                if mn<=m_n<=mx: add({"n":m_n,"math":f"Número maestro {m_n}","fuente":"numerologia","peso":3})
+            fp=inputs.get("fecha_especial","")
+            if fp:
+                for nf in calc_fecha(fp,mn,mx): add({**nf,"peso":4})
+                partes=[x for x in re.split(r'[-/.]',fp) if x.isdigit()]
+                if len(partes)>=2:
+                    try:
+                        d_f,m_f=int(partes[0]),int(partes[1])
+                        if 1<=d_f<=31 and 1<=m_f<=12:
+                            for ev in obtener_efemerides(m_f,d_f)[:3]:
+                                yr=ev.get("year",0)
+                                if yr:
+                                    y2=yr%100
+                                    if mn<=y2<=mx: add({"n":y2,"math":f"Tu fecha {d_f}/{m_f}: {yr}→{y2}","fuente":"fecha_personal","peso":3})
+                    except: pass
+        # ◐ Lunar
+        if inputs.get("use_lun", False):
+            lu=calc_lunar()
+            if mn<=lu["n"]<=mx: add({**lu,"peso":3})
+        # ∞ Sueños — Groq los interpreta en el prompt
+        if inputs.get("use_sue", False):
+            pass  # Groq extrae números del sueño en prompt
 
     # MÓDULO MATEMÁTICO
     if "math" in modulos:
-        for f in calc_fibonacci(mn,mx): add({**f,"peso":4})
-        for t in calc_tesla(mn,mx): add({**t,"peso":3})
-        for s in calc_sagrada(mn,mx)[:20]: add({**s,"peso":3})
-        for p in calc_primos(mn,mx): add({**p,"peso":2})
+        if inputs.get("use_fib", False):
+            for f in calc_fibonacci(mn,mx): add({**f,"peso":4})
+        if inputs.get("use_tes", False):
+            for t_n in calc_tesla(mn,mx): add({**t_n,"peso":3})
+        if inputs.get("use_sag", False):
+            for s in calc_sagrada(mn,mx)[:20]: add({**s,"peso":3})
+        if inputs.get("use_pri", False):
+            for p in calc_primos(mn,mx): add({**p,"peso":2})
+        if inputs.get("use_fra", False):
+            # Fractales — números de la serie de Mandelbrot reducidos al rango
+            frac_base=[2,3,5,8,13,21,34,55]+[n for n in [1,4,9,16,25,36,49] if mn<=n<=mx]
+            frac=[n for n in frac_base if mn<=n<=mx]
+            for n in set(frac):
+                if mn<=n<=mx: add({"n":n,"math":f"Fractal — auto-similitud en {n}","fuente":"fractal","peso":2})
 
     # Deduplicar — mejor peso gana
     mejor={}
@@ -996,14 +1018,14 @@ REGLAS ABSOLUTAS:
 8. Si hay sueño → extraer número del símbolo (fuente "sueno")
 9. NUNCA inventar datos fuera de la lista
 NUNCA inventar porcentajes, fechas exactas ni estadísticas que no estén en los candidatos
-Si fuente es "historico" → decir solo "es uno de los números más frecuentes en {loteria['nombre']}" sin inventar %
-Si fuente es "community" → decir solo "número popular en la comunidad de {loteria['nombre']}" si no hay datos Reddit reales
+Si fuente es "historico" → decir que es uno de los numeros mas frecuentes en la loteria, sin inventar %
+Si fuente es "community" → decir que es numero popular en la comunidad si no hay datos Reddit reales
 
 VOZ DE EXPERTO por fuente:
-- historico → historiador de probabilidades: usa los datos del ANÁLISIS HISTÓRICO VERIFICADO de arriba.
-  Ejemplo: "Los {dia_actual}, el N lidera la frecuencia histórica en {loteria}" o
-  "En {mes_nombre}, el N es el más frecuente históricamente" o
-  "El N está frío — sin aparecer en semanas, estadísticamente vencido"
+- historico → historiador de probabilidades: usa los datos del ANÁLISIS HISTÓRICO VERIFICADO.
+  Ejemplo: "Los [dia], el N lidera la frecuencia historica" o
+  "En [mes], el N es el mas frecuente" o
+  "El N esta frio, sin aparecer en semanas"
   NUNCA inventar porcentajes exactos
 - community → analista de datos: cita menciones exactas en comunidad
 - fibonacci → matemático: cita posición en secuencia y suma de anteriores
@@ -1180,20 +1202,35 @@ def email_combo(to,loteria,resultado):
 # 13. COMPONENTES UI
 # ══════════════════════════════════════════════════════
 def render_header():
-    """Header limpio — idioma en sidebar"""
-    st.markdown("""
-<div style="display:flex;align-items:center;
-padding:10px 0;border-bottom:1px solid rgba(201,168,76,.1);margin-bottom:8px;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <div style="width:32px;height:32px;min-width:32px;background:linear-gradient(135deg,#C9A84C,#F5D68A);
-    border-radius:9px;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 0 14px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
-    <div>
-      <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
-      <div style="font-family:monospace;font-size:8px;color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
-    </div>
+    """Header con logo + selector idioma inline"""
+    lang = st.session_state["idioma"]
+    # Logo + idioma en la misma fila
+    col_logo, col_lang = st.columns([3,1])
+    with col_logo:
+        st.markdown("""
+<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
+  <div style="width:32px;height:32px;min-width:32px;background:linear-gradient(135deg,#C9A84C,#F5D68A);
+  border-radius:9px;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 14px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
+  <div>
+    <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
+    <div style="font-family:monospace;font-size:8px;color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
   </div>
 </div>""", unsafe_allow_html=True)
+    with col_lang:
+        # Selector idioma exactamente como Dropshippingent
+        LANG_MAP = {"EN":"🇺🇸 EN","ES":"🇪🇸 ES","PT":"🇧🇷 PT"}
+        opts = list(LANG_MAP.keys())
+        nuevo = st.selectbox("", opts,
+            index=opts.index(lang),
+            key="header_lang",
+            label_visibility="collapsed",
+            format_func=lambda x: LANG_MAP[x])
+        if nuevo != lang:
+            st.session_state["idioma"] = nuevo
+            st.rerun()
+    st.markdown('<hr style="border:none;border-top:1px solid rgba(201,168,76,.1);margin:0 0 8px;">',
+                unsafe_allow_html=True)
 
 def render_balls_landing():
     st.markdown("""
@@ -1449,10 +1486,19 @@ elif st.session_state.get("vista")=="app":
                     st.session_state["nums_favoritos"]=[]; st.rerun()
 
         # MÓDULO 2 — DATOS REALES
-        use_real_exp = st.session_state.get("exp_real", False)
-        with st.expander(t["real_title"], expanded=False) as exp_r:
+        with st.expander(t["real_title"], expanded=False):
             st.caption(t["real_help"])
-            modulos.append("real")
+            cb_hist  = st.checkbox(f"{ICONS['historico']} {t['sources']['historico']}",  value=True,  key="cb_hist")
+            cb_comm  = st.checkbox(f"{ICONS['community']} {t['sources']['community']}",  value=True,  key="cb_comm")
+            cb_event = st.checkbox(f"{ICONS['eventos']} {t['sources']['eventos']}",      value=True,  key="cb_event")
+            cb_tasa  = st.checkbox(f"{ICONS['cambio']} {t['sources']['cambio']}",        value=False, key="cb_tasa")
+            if any([cb_hist, cb_comm, cb_event, cb_tasa]):
+                modulos.append("real")
+                inputs["use_hist"]  = cb_hist
+                inputs["use_comm"]  = cb_comm
+                inputs["use_event"] = cb_event
+                inputs["use_tasa"]  = cb_tasa
+            st.markdown('<div style="margin-top:6px;"></div>', unsafe_allow_html=True)
             crowd_pref=st.radio(t["crowd_pref"],[t["balanced"],t["follow"],t["avoid"]],horizontal=True,key="cp")
             crowd_map={t["follow"]:"follow",t["avoid"]:"avoid",t["balanced"]:"balanced"}
             inputs["crowd"]=crowd_map.get(crowd_pref,"balanced")
@@ -1461,17 +1507,36 @@ elif st.session_state.get("vista")=="app":
         # MÓDULO 3 — HOLÍSTICO
         with st.expander(t["holistic_title"],expanded=False):
             st.caption(t["holistic_help"])
-            modulos.append("holistic")
-            c1,c2=st.columns(2)
-            with c1: inputs["your_name"]=st.text_input(t["your_name"],placeholder="Your name",key="nm")
-            with c2: inputs["fecha_especial"]=st.text_input(t["special_date"],placeholder="14/03/1990",key="fe")
-            inputs["sueno"]=st.text_area("",placeholder=t["dream_placeholder"],key="dr",height=70)
+            cb_num  = st.checkbox(f"{ICONS['numerologia']} {t['sources']['numerologia']}", value=False, key="cb_num")
+            cb_lun  = st.checkbox(f"{ICONS['lunar']} {t['sources']['lunar']}",             value=False, key="cb_lun")
+            cb_sue  = st.checkbox(f"{ICONS['sueno']} {t['sources']['sueno']}",             value=False, key="cb_sue")
+            if any([cb_num, cb_lun, cb_sue]):
+                modulos.append("holistic")
+                inputs["use_num"] = cb_num
+                inputs["use_lun"] = cb_lun
+                inputs["use_sue"] = cb_sue
+            if cb_num:
+                c1,c2=st.columns(2)
+                with c1: inputs["your_name"]=st.text_input(t["your_name"],placeholder="Your name",key="nm")
+                with c2: inputs["fecha_especial"]=st.text_input(t["special_date"],placeholder="14/03/1990",key="fe")
+            if cb_sue:
+                inputs["sueno"]=st.text_area("",placeholder=t["dream_placeholder"],key="dr",height=70)
 
         # MÓDULO 4 — MATEMÁTICO
         with st.expander(t["math_title"],expanded=False):
             st.caption(t["math_help"])
-            modulos.append("math")
-            st.caption("ϕ Fibonacci · ⌁ Tesla · ⬡ Sacred Geometry · ∴ Primes")
+            cb_fib = st.checkbox(f"{ICONS['fibonacci']} Fibonacci",              value=False, key="cb_fib")
+            cb_tes = st.checkbox(f"{ICONS['tesla']} Tesla 3·6·9",                value=False, key="cb_tes")
+            cb_sag = st.checkbox(f"{ICONS['sagrada']} {t['sources']['sagrada']}", value=False, key="cb_sag")
+            cb_pri = st.checkbox(f"{ICONS['primos']} {t['sources']['primos']}",  value=False, key="cb_pri")
+            cb_fra = st.checkbox(f"{ICONS['fractal']} {t['sources']['fractal']}", value=False, key="cb_fra")
+            if any([cb_fib, cb_tes, cb_sag, cb_pri, cb_fra]):
+                modulos.append("math")
+                inputs["use_fib"] = cb_fib
+                inputs["use_tes"] = cb_tes
+                inputs["use_sag"] = cb_sag
+                inputs["use_pri"] = cb_pri
+                inputs["use_fra"] = cb_fra
 
     if not modulos: modulos=["real"]
 
