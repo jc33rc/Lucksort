@@ -1099,6 +1099,8 @@ Responde SOLO en {lang_full}. Devuelve SOLO JSON válido sin HTML:
             max_tokens=1800
         )
         raw=resp.choices[0].message.content.strip()
+        print(f"[LUCKSORT GROQ] candidatos enviados: {len(ordenados)}")
+        print(f"[LUCKSORT GROQ] respuesta raw: {raw[:300]}")
         if "```" in raw: raw=raw.split("```")[1].replace("json","").strip()
         res=json.loads(raw)
 
