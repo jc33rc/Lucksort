@@ -1586,7 +1586,17 @@ elif st.session_state.get("vista")=="app":
                 inputs["use_pri"] = cb_pri
                 inputs["use_fra"] = cb_fra
 
-    if not modulos: modulos=["real"]
+    # Si modulos vacío (expanders cerrados tras rerun)
+    # usar los del último intento o default real
+    if not modulos:
+        if st.session_state.get("saved_modulos"):
+            modulos = st.session_state["saved_modulos"]
+            inputs  = st.session_state.get("saved_inputs", inputs)
+        else:
+            modulos=["real"]
+            inputs["use_hist"]=True
+            inputs["use_comm"]=True
+            inputs["use_event"]=True
 
     restantes=max(0,MAX_GEN-gen_hoy)
     if restantes<=0:
@@ -1605,6 +1615,8 @@ elif st.session_state.get("vista")=="app":
             st.session_state["ultima_generacion"]=resultado
             st.session_state["ultima_loteria"]=loteria
             st.session_state["ultima_modulos"]=modulos
+            st.session_state["saved_modulos"]=modulos
+            st.session_state["saved_inputs"]=inputs
             st.session_state["generaciones_hoy"][loteria["id"]]=gen_hoy+1
             if st.session_state.get("user_id"):
                 guardar_generacion(st.session_state["user_id"],loteria["id"],resultado.get("numbers",[]),resultado.get("bonus"),resultado.get("sources",[]),inputs)
