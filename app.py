@@ -14,14 +14,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Leer idioma desde query_params ANTES de session_state
-_qp_lang = st.query_params.get("lang", "EN")
-if _qp_lang not in ["EN","ES","PT"]: _qp_lang = "EN"
-
 DEFAULTS = {
     "logged_in": False, "user_role": "invitado",
     "user_email": "", "user_id": None,
-    "idioma": _qp_lang, "fecha_uso": str(date.today()),
+    "idioma": "EN", "fecha_uso": str(date.today()),
     "generaciones_hoy": {}, "ultima_generacion": None,
     "ultima_loteria": None, "vista": "app",
     "historial_sesion": [], "nums_favoritos": [],
@@ -159,6 +155,7 @@ try:
     SB_KEY      = st.secrets["SUPABASE_KEY"]
     RESEND_KEY  = st.secrets.get("RESEND_API_KEY","")
     ADMIN_EMAIL = st.secrets.get("ADMIN_EMAIL","admin@lucksort.com")
+    ADMIN_EMAIL2 = "hello@lucksort.com"
     ADMIN_PASS  = st.secrets.get("ADMIN_PASS","admin123")
     NEWS_KEY    = st.secrets.get("NEWS_API_KEY","")
     STRIPE_LINK = st.secrets.get("STRIPE_PAYMENT_LINK","https://buy.stripe.com/lucksort")
@@ -1261,38 +1258,36 @@ def email_combo(to,loteria,resultado):
 # 13. COMPONENTES UI
 # ══════════════════════════════════════════════════════
 def render_header():
-    """Header con logo + pills idioma como links href"""
+    """Header con logo + radio idioma — preserva session_state al cambiar"""
     lang = st.session_state["idioma"]
-    
-    def pill(code):
-        active = code == lang
-        bg    = "rgba(201,168,76,0.15)" if active else "transparent"
-        border= "rgba(201,168,76,0.45)" if active else "rgba(255,255,255,0.12)"
-        color = "#C9A84C"               if active else "rgba(255,255,255,0.32)"
-        style = (f"padding:3px 10px;border-radius:20px;border:1px solid {border};"
-                 f"background:{bg};color:{color};font-family:monospace;"
-                 f"font-size:10px;font-weight:700;letter-spacing:1px;"
-                 f"text-decoration:none;display:inline-block;")
-        return f'<a href="?lang={code}" target="_self" style="{style}">{code}</a>'
 
-    pills = " ".join([pill(c) for c in ["EN","ES","PT"]])
-    st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:space-between;
-padding:10px 0;border-bottom:1px solid rgba(201,168,76,.1);margin-bottom:8px;">
-  <div style="display:flex;align-items:center;gap:10px;">
-    <div style="width:32px;height:32px;min-width:32px;
-    background:linear-gradient(135deg,#C9A84C,#F5D68A);border-radius:9px;
-    display:flex;align-items:center;justify-content:center;
-    box-shadow:0 0 14px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
-    <div>
-      <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;
-      color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
-      <div style="font-family:monospace;font-size:8px;
-      color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
-    </div>
+    col_logo, col_lang = st.columns([3,1])
+    with col_logo:
+        st.markdown("""
+<div style="display:flex;align-items:center;gap:10px;padding:8px 0 6px;">
+  <div style="width:32px;height:32px;min-width:32px;
+  background:linear-gradient(135deg,#C9A84C,#F5D68A);border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 14px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
+  <div>
+    <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;
+    color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
+    <div style="font-family:monospace;font-size:8px;
+    color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
   </div>
-  <div style="display:flex;gap:5px;">{pills}</div>
 </div>""", unsafe_allow_html=True)
+    with col_lang:
+        opts = ["EN","ES","PT"]
+        sel = st.radio("",opts,
+            index=opts.index(lang),
+            horizontal=True,
+            key="lang_radio_hdr",
+            label_visibility="collapsed")
+        if sel != lang:
+            st.session_state["idioma"] = sel
+            st.rerun()
+    st.markdown('<hr style="border:none;border-top:1px solid rgba(201,168,76,.1);margin:0 0 8px;">',
+                unsafe_allow_html=True)
 
 def render_balls_landing():
     st.markdown("""
@@ -1413,7 +1408,6 @@ with st.sidebar:
         index=list(LANG_OPTS.keys()).index(cur_display),
         key="sb_lang")
     if LANG_OPTS[sel_lang] != lang_actual:
-        st.query_params["lang"] = LANG_OPTS[sel_lang]
         st.session_state["idioma"] = LANG_OPTS[sel_lang]
         st.rerun()
     st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:8px 0;">',unsafe_allow_html=True)
@@ -1424,7 +1418,7 @@ with st.sidebar:
         with tab_in:
             em=st.text_input(t["email"],key="si_e"); pw=st.text_input(t["password"],type="password",key="si_p")
             if st.button(t["btn_login"],use_container_width=True,key="btn_si"):
-                if em==ADMIN_EMAIL and pw==ADMIN_PASS:
+                if (em==ADMIN_EMAIL or em==ADMIN_EMAIL2) and pw==ADMIN_PASS:
                     st.session_state.update({"logged_in":True,"user_role":"admin","user_email":em,"user_id":None,"vista":"app"}); st.rerun()
                 else:
                     ok,datos=login_usuario(em,pw)
@@ -1496,7 +1490,7 @@ if not st.session_state["logged_in"]:
         with tab_l:
             le=st.text_input(t["email"],key="ll_e"); lp=st.text_input(t["password"],type="password",key="ll_p")
             if st.button(t["btn_login"],use_container_width=True,key="ll_b"):
-                if le==ADMIN_EMAIL and lp==ADMIN_PASS:
+                if (le==ADMIN_EMAIL or le==ADMIN_EMAIL2) and lp==ADMIN_PASS:
                     st.session_state.update({"logged_in":True,"user_role":"admin","user_email":le,"user_id":None,"vista":"app"}); st.rerun()
                 else:
                     ok,datos=login_usuario(le,lp)
@@ -1605,7 +1599,12 @@ elif st.session_state.get("vista")=="app":
                 inputs["use_pri"] = cb_pri
                 inputs["use_fra"] = cb_fra
 
-    if not modulos: modulos=["real"]
+    if not modulos:
+        modulos=["real"]
+        # Garantizar que preparar_datos recibe los defaults
+        if "use_hist" not in inputs: inputs["use_hist"]=True
+        if "use_comm" not in inputs: inputs["use_comm"]=True
+        if "use_event" not in inputs: inputs["use_event"]=True
 
     restantes=max(0,MAX_GEN-gen_hoy)
     if restantes<=0:
