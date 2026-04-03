@@ -515,24 +515,73 @@ def generar(loteria, inputs, modulos):
     bonus_txt = f"1 {loteria['bname']} 1-{loteria['bmax']} (pool SEPARADO)" if loteria["bonus"] else "sin bonus"
     hist = HIST.get(loteria["nombre"], {})
 
-    prompt = f"""Genera una combinacion de loteria unica. Seed #{seed}.
-LOTERIA: {loteria['nombre']} ({mn}-{mx}) | {loteria['n']} numeros | {bonus_txt}
-IDIOMA: {lang_full}
-MODULOS ACTIVOS: {modulos}
-FAVORITOS: {fav}
+    # ── PRE-SELECCIÓN PYTHON — garantiza distribución entre módulos ──
+    preseleccion = []
+    usados_pre = set(fav) & set(c["n"] for c in validos)
+
+    # 1. Favoritos primero
+    for n in fav:
+        if any(c["n"]==n for c in validos) and n not in [p["n"] for p in preseleccion]:
+            preseleccion.append({"n":n,"fuente":"favorito"})
+
+    # 2. Un número obligatorio de cada módulo activo
+    if "math" in modulos:
+        for fuente in ["fibonacci","tesla","sagrada","primos"]:
+            candidatos_f = [c for c in validos if c["fuente"]==fuente and c["n"] not in [p["n"] for p in preseleccion]]
+            if candidatos_f and len(preseleccion) < loteria["n"]:
+                elegido = random.choice(candidatos_f[:3])
+                preseleccion.append({"n":elegido["n"],"fuente":fuente})
+                break
+
+    if "holistic" in modulos:
+        for fuente in ["numerologia","lunar"]:
+            candidatos_f = [c for c in validos if c["fuente"]==fuente and c["n"] not in [p["n"] for p in preseleccion]]
+            if candidatos_f and len(preseleccion) < loteria["n"]:
+                elegido = candidatos_f[0]
+                preseleccion.append({"n":elegido["n"],"fuente":fuente})
+                break
+
+    if "real" in modulos:
+        # Comunidad primero
+        candidatos_comm = [c for c in validos if c["fuente"]=="community" and c["n"] not in [p["n"] for p in preseleccion]]
+        if candidatos_comm and len(preseleccion) < loteria["n"]:
+            preseleccion.append({"n":candidatos_comm[0]["n"],"fuente":"community"})
+        # Histórico
+        candidatos_hist = [c for c in validos if c["fuente"]=="historico" and c["n"] not in [p["n"] for p in preseleccion]]
+        if candidatos_hist and len(preseleccion) < loteria["n"]:
+            preseleccion.append({"n":candidatos_hist[0]["n"],"fuente":"historico"})
+
+    # 3. Completar con mejores candidatos disponibles
+    nums_pre = [p["n"] for p in preseleccion]
+    restantes = [c for c in validos if c["n"] not in nums_pre]
+    while len(preseleccion) < loteria["n"] and restantes:
+        preseleccion.append({"n":restantes[0]["n"],"fuente":restantes[0]["fuente"]})
+        restantes.pop(0)
+
+    # Lista final para Groq — ya distribuida
+    nums_fijos = [p["n"] for p in preseleccion]
+
+    prompt = f"""Genera narrativas expertas para esta combinacion de loteria.
+LOTERIA: {loteria['nombre']} | IDIOMA: {lang_full}
+MODULOS: {modulos}
 SUENO: "{inputs.get('sueno','ninguno')}"
 
-CANDIDATOS disponibles (elige SOLO de esta lista):
-{json.dumps(validos[:50], ensure_ascii=False)}
+NUMEROS YA ELEGIDOS (no cambiar): {nums_fijos}
+BONUS SEPARADO: {f'elige 1 numero entre 1-{loteria["bmax"]}' if loteria["bonus"] else 'null'}
 
-INSTRUCCIONES CRITICAS:
-1. Elige exactamente {loteria['n']} numeros diferentes de la lista de candidatos
-2. Incluye favoritos obligatoriamente si estan en la lista
-3. DISTRIBUCION OBLIGATORIA: si hay modulos multiples activos, incluye AL MENOS 1 numero de CADA modulo
-   - Si "math" en modulos: incluir minimo 1 fibonacci O tesla O sagrada O primos
-   - Si "holistic" en modulos: incluir minimo 1 numerologia O lunar
-   - Si "real" en modulos: incluir minimo 1 historico O community
-4. NO uses el mismo tipo de fuente para todos los numeros
+DATOS DE CANDIDATOS:
+{json.dumps([c for c in validos if c["n"] in nums_fijos], ensure_ascii=False)}
+
+INSTRUCCION: Escribe una narrativa experta en {lang_full} para cada numero segun su fuente:
+- fibonacci: formula exacta F(n-1)+F(n-2)=N y posicion en la secuencia
+- tesla: N es multiplo de 3, patron 3-6-9
+- sagrada: N = phi x K proporcion aurea  
+- primos: N es primo — sus propiedades matematicas
+- numerologia: reduccion paso a paso del nombre/fecha
+- lunar: fase lunar actual dia N del ciclo
+- community: mencionado X veces en la comunidad
+- historico: frecuencia especifica en {loteria['nombre']} — mes, dia de sorteo
+- favorito: confirmar preferencia del usuario
 5. Bonus de pool SEPARADO: {f'elige entre 1-{loteria["bmax"]}' if loteria["bonus"] else 'null'}
 
 Para cada numero, escribe una narrativa experta en {lang_full}:
@@ -546,8 +595,8 @@ Para cada numero, escribe una narrativa experta en {lang_full}:
 - historico: menciona la frecuencia historica
 - favorito: confirma la preferencia del usuario
 
-Responde SOLO JSON:
-{{"numbers": [{loteria['n']} enteros], "bonus": {"entero" if loteria["bonus"] else "null"}, "explanations": {{"N": "narrativa experta para el numero N en {lang_full}"}}}}"""
+Responde SOLO JSON sin markdown:
+{{"bonus": {"entero 1-" + str(loteria["bmax"]) if loteria["bonus"] else "null"}, "explanations": {{"N": "narrativa experta en {lang_full} para el numero N"}}}}"""
 
     try:
         resp = groq_cl.chat.completions.create(
@@ -586,12 +635,26 @@ Responde SOLO JSON:
 
         explanations = groq_res.get("explanations", {})
 
-        # ── POST-PROCESO CRITICO ──
-        # La fuente se determina por los SETS MATEMATICOS, no por Groq
+        # ── POST-PROCESO: fuente por Python, narrativa por Groq ──
         sources = []
-        for n in nums:
+        for p in preseleccion:
+            n = p["n"]
             fuente, math_txt = determinar_fuente(n, sets_mat, modulos)
             expl = explanations.get(str(n), explanations.get(n, ""))
+            # Si Groq no dio narrativa, generar una automatica
+            if not expl:
+                expl = {
+                    "fibonacci": f"El {n} pertenece a la secuencia de Fibonacci — aparece de forma natural en la matematica",
+                    "tesla": f"El {n} es multiplo de 3, alineado con el patron 3-6-9 de Tesla",
+                    "sagrada": f"El {n} sigue la proporcion aurea phi — numero de la geometria sagrada",
+                    "primos": f"El {n} es primo — indivisible, unico en su posicion matematica",
+                    "numerologia": f"El {n} emerge de la reduccion numerologica de tus datos personales",
+                    "lunar": f"El {n} corresponde al dia {n} del ciclo lunar actual",
+                    "community": f"El {n} fue destacado por la comunidad de jugadores",
+                    "historico": f"El {n} lidera la frecuencia historica en {loteria['nombre']}",
+                    "favorito": f"El {n} es tu numero favorito — incluido por tu preferencia",
+                    "eventos": f"El {n} esta vinculado a eventos historicos de esta fecha",
+                }.get(fuente, f"El {n} fue seleccionado por convergencia de datos")
             sources.append({
                 "number": n,
                 "source": fuente,
