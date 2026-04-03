@@ -1155,7 +1155,7 @@ def registrar_usuario(email,password):
         # Verificar si ya existe
         check=supabase.table("usuarios").select("email").eq("email",email).execute()
         if check.data: return False,"exists"
-        # Insertar nuevo usuario
+        # Insertar — sin especificar id (Supabase lo genera: UUID o BIGSERIAL)
         res=supabase.table("usuarios").insert({
             "email":email,
             "password":password,
@@ -1163,16 +1163,15 @@ def registrar_usuario(email,password):
             "generaciones_hoy":0,
             "fecha_uso":str(date.today())
         }).execute()
-        if res.data:
+        # Recuperar el usuario recién creado
+        rec=supabase.table("usuarios").select("*").eq("email",email).execute()
+        if rec.data:
+            return True, rec.data[0]
+        elif res.data:
             return True, res.data[0]
-        else:
-            # Si no hay data pero tampoco error, intentar recuperar
-            rec=supabase.table("usuarios").select("*").eq("email",email).execute()
-            if rec.data: return True, rec.data[0]
-            return False,"error"
+        return False,"error"
     except Exception as e:
         err=str(e)
-        # RLS policy error — tabla necesita política INSERT
         if "row-level" in err.lower() or "policy" in err.lower() or "403" in err:
             return False,"rls"
         return False, err
