@@ -1018,18 +1018,21 @@ if not st.session_state["logged_in"]:
 
     # Hero
     st.markdown(f"""
-<div style="text-align:center;padding:32px 16px 24px;">
-  <div style="display:inline-block;padding:5px 14px;border-radius:20px;
+<div style="text-align:center;padding:22px 16px 12px;">
+  <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;
   background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);
   font-family:'DM Mono',monospace;font-size:10px;color:#C9A84C;
-  letter-spacing:2px;margin-bottom:20px;">⬤ DATA CONVERGENCE ENGINE</div>
-  <h1 style="font-family:'Playfair Display',serif;font-size:clamp(28px,6vw,48px);
-  font-weight:700;line-height:1.15;color:white;margin-bottom:12px;">
-    {t_['tagline'].split()[0]} {t_['tagline'].split()[1] if len(t_['tagline'].split())>1 else ''}<br>
+  letter-spacing:2px;margin-bottom:16px;">
+    <span style="width:5px;height:5px;border-radius:50%;background:#C9A84C;display:inline-block;box-shadow:0 0 6px #C9A84C;"></span>
+    DATA CONVERGENCE ENGINE
+  </div>
+  <h1 style="font-family:'Playfair Display',serif;font-size:clamp(30px,7vw,56px);
+  font-weight:700;line-height:1.05;letter-spacing:-1.5px;color:white;margin-bottom:12px;">
+    {t_['tagline']}<br>
     <span style="background:linear-gradient(135deg,#C9A84C,#F0C84A);
-    -webkit-background-clip:text;-webkit-text-fill-color:transparent;">{' '.join(t_['tagline'].split()[2:]) if len(t_['tagline'].split())>2 else ''}</span>
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;">backed by the world</span>
   </h1>
-  <p style="font-size:15px;color:rgba(232,228,217,.5);max-width:400px;margin:0 auto 28px;line-height:1.6;">
+  <p style="font-size:15px;color:rgba(232,228,217,.38);max-width:420px;margin:0 auto;line-height:1.8;">
     {t_['subtitle']}
   </p>
 </div>""", unsafe_allow_html=True)
@@ -1101,14 +1104,39 @@ setInterval(() => {
 },2800);
 </script>""", unsafe_allow_html=True)
 
-    # CTA
-    st.markdown(f"""
-<div style="text-align:center;padding:8px 0 20px;">
-  <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,.2);
-  letter-spacing:2px;margin-bottom:12px;">FREE · NO CREDIT CARD · EN / ES / PT</div>
-</div>""", unsafe_allow_html=True)
-
-    st.info("← Abre el menú lateral para registrarte o iniciar sesión")
+    st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:4px 0 12px;">',unsafe_allow_html=True)
+    _c1, _c2, _c3 = st.columns([1,2,1])
+    with _c2:
+        st.markdown('<p style="text-align:center;font-family:monospace;font-size:9px;color:rgba(255,255,255,.16);letter-spacing:1.5px;margin-bottom:10px;">FREE · NO CREDIT CARD · ES / EN / PT</p>',unsafe_allow_html=True)
+        tab_r, tab_l = st.tabs([t_["register"], t_["login"]])
+        with tab_r:
+            re_em  = st.text_input(t_["email"],        key="lr_em",  placeholder="tu@email.com")
+            re_pw  = st.text_input(t_["password"],     key="lr_pw",  type="password")
+            re_pw2 = st.text_input(t_["confirm_pass"], key="lr_pw2", type="password")
+            if st.button(t_["register_btn"], use_container_width=True, key="lr_btn"):
+                if re_pw != re_pw2: st.error(t_["pass_mismatch"])
+                elif len(re_pw) < 6: st.warning("Mínimo 6 caracteres")
+                elif "@" not in re_em: st.warning("Email inválido")
+                else:
+                    ok, res = registrar_usuario(re_em, re_pw)
+                    if ok:
+                        st.session_state.update({"logged_in":True,"user_role":"free","user_email":re_em,"user_id":res.get("id"),"vista":"app"})
+                        st.rerun()
+                    elif res == "exists": st.error(t_["email_exists"])
+                    else: st.error(f"Error: {res}")
+        with tab_l:
+            le = st.text_input(t_["email"],    key="ll_em", placeholder="tu@email.com")
+            lp = st.text_input(t_["password"], key="ll_pw", type="password")
+            if st.button(t_["login_btn"], use_container_width=True, key="ll_btn"):
+                if le == ADMIN_EMAIL and lp == ADMIN_PASS:
+                    st.session_state.update({"logged_in":True,"user_role":"admin","user_email":le,"user_id":None,"vista":"app"})
+                    st.rerun()
+                else:
+                    ok, datos = login_usuario(le, lp)
+                    if ok:
+                        st.session_state.update({"logged_in":True,"user_role":datos.get("role","free"),"user_email":datos["email"],"user_id":datos["id"],"vista":"app"})
+                        st.rerun()
+                    else: st.error(t_["login_error"])
     st.stop()
 
 # ══════════════════════════════════════════
