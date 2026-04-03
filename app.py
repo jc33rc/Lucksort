@@ -1519,7 +1519,7 @@ elif st.session_state.get("vista")=="app":
     modulos=[]
     inputs={}
 
-    if es_paid or st.session_state["user_role"]=="admin":
+    if True:  # todos los usuarios ven los módulos
 
         # MÓDULO 1 — FAVORITOS
         favs=st.session_state.get("nums_favoritos",[])
@@ -1603,15 +1603,12 @@ elif st.session_state.get("vista")=="app":
         st.warning(f"⚠️ {t['gen_counter']}: {MAX_GEN}/{MAX_GEN}")
     else:
         if st.button(f"◆ {t['generate_btn']}",use_container_width=True,key="gen_btn"):
-            if es_paid or st.session_state["user_role"]=="admin":
-                ph=st.empty()
-                for step in t["conv_steps"]:
-                    ph.markdown(f'<div style="text-align:center;padding:18px 0;"><div class="conv-ring"></div><div class="conv-label">{step}</div></div>',unsafe_allow_html=True)
-                    time.sleep(0.55)
-                ph.empty()
-                resultado=generar_combinacion(loteria,inputs,modulos)
-            else:
-                with st.spinner(t["generating"]): resultado=generar_aleatorio(loteria)
+            ph=st.empty()
+            for step in t["conv_steps"]:
+                ph.markdown(f'<div style="text-align:center;padding:18px 0;"><div class="conv-ring"></div><div class="conv-label">{step}</div></div>',unsafe_allow_html=True)
+                time.sleep(0.55)
+            ph.empty()
+            resultado=generar_combinacion(loteria,inputs,modulos)
             st.session_state["ultima_generacion"]=resultado
             st.session_state["ultima_loteria"]=loteria
             st.session_state["ultima_modulos"]=modulos
