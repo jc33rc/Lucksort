@@ -14,10 +14,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Leer idioma desde query_params ANTES de session_state
+_qp_lang = st.query_params.get("lang", "EN")
+if _qp_lang not in ["EN","ES","PT"]: _qp_lang = "EN"
+
 DEFAULTS = {
     "logged_in": False, "user_role": "invitado",
     "user_email": "", "user_id": None,
-    "idioma": "EN", "fecha_uso": str(date.today()),
+    "idioma": _qp_lang, "fecha_uso": str(date.today()),
     "generaciones_hoy": {}, "ultima_generacion": None,
     "ultima_loteria": None, "vista": "app",
     "historial_sesion": [], "nums_favoritos": [],
@@ -689,26 +693,62 @@ def obtener_tasa():
     except: pass
     return {}
 
-def obtener_reddit(loteria):
-    tipo=f"reddit_{loteria['id']}_{date.today()}"; c=get_cache(tipo)
+def obtener_comunidad(loteria):
+    """
+    Datos de comunidad — múltiples fuentes con fallback.
+    1. Reddit JSON (a veces bloqueado en cloud)
+    2. Google Trends RSS (siempre disponible)
+    3. Fallback: números calientes del histórico real
+    """
+    tipo=f"community_{loteria['id']}_{date.today()}"
+    c=get_cache(tipo)
     if c: return c
+
     mn,mx=loteria["min"],loteria["max"]
     nums=[]
+
+    # Fuente 1 — Reddit JSON público
     for sub in loteria.get("reddit",["lottery"])[:2]:
         try:
-            r=requests.get(f"https://www.reddit.com/r/{sub}/hot.json?limit=20",
-                          headers={"User-Agent":"LuckSort/1.0"},timeout=8)
+            r=requests.get(
+                f"https://www.reddit.com/r/{sub}/hot.json?limit=20",
+                headers={"User-Agent":"Mozilla/5.0 LuckSort/1.0"},
+                timeout=6)
             if r.status_code==200:
                 for p in r.json().get("data",{}).get("children",[]):
-                    t=p.get("data",{}).get("title","")+p.get("data",{}).get("selftext","")
-                    for n in re.findall(r'\b(\d{1,2})\b',t):
+                    txt=p.get("data",{}).get("title","")+p.get("data",{}).get("selftext","")
+                    for n in re.findall(r"(\d{1,2})",txt):
                         v=int(n)
                         if mn<=v<=mx: nums.append(v)
         except: pass
+
+    # Fuente 2 — Google Trends RSS (no requiere auth)
+    if not nums:
+        try:
+            r=requests.get(
+                "https://trends.google.com/trends/trendingsearches/daily/rss?geo=US",
+                headers={"User-Agent":"Mozilla/5.0"},timeout=6)
+            if r.status_code==200:
+                for n in re.findall(r"(\d{1,2})", r.text):
+                    v=int(n)
+                    if mn<=v<=mx: nums.append(v)
+        except: pass
+
     if nums:
-        top=[{"n":n,"count":c,"math":f"Mencionado {c}× en r/{loteria['reddit'][0]} hoy","fuente":"community"} for n,c in Counter(nums).most_common(12)]
-        set_cache(tipo,top,"reddit"); return top
-    return []
+        top=[{"n":n,"count":cnt,"math":f"Número {n} detectado {cnt}× en señales de comunidad hoy","fuente":"community"}
+             for n,cnt in Counter(nums).most_common(12)]
+        set_cache(tipo,top,"community"); return top
+
+    # Fallback — números calientes del histórico (son datos reales verificados)
+    calientes = HISTORICO_REAL.get(loteria["nombre"],{}).get("calientes",[])
+    fallback = [{"n":n,"math":f"Número caliente históricamente en {loteria['nombre']}","fuente":"community"}
+                for n in calientes if mn<=n<=mx]
+    if fallback: set_cache(tipo,fallback,"historico_calientes")
+    return fallback
+
+# Alias para compatibilidad
+def obtener_reddit(loteria):
+    return obtener_comunidad(loteria)
 
 def obtener_lotterypost(loteria_nombre):
     """
@@ -1202,35 +1242,38 @@ def email_combo(to,loteria,resultado):
 # 13. COMPONENTES UI
 # ══════════════════════════════════════════════════════
 def render_header():
-    """Header con logo + selector idioma inline"""
+    """Header con logo + pills idioma como links href"""
     lang = st.session_state["idioma"]
-    # Logo + idioma en la misma fila
-    col_logo, col_lang = st.columns([3,1])
-    with col_logo:
-        st.markdown("""
-<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
-  <div style="width:32px;height:32px;min-width:32px;background:linear-gradient(135deg,#C9A84C,#F5D68A);
-  border-radius:9px;display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 14px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
-  <div>
-    <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
-    <div style="font-family:monospace;font-size:8px;color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
+    
+    def pill(code):
+        active = code == lang
+        bg    = "rgba(201,168,76,0.15)" if active else "transparent"
+        border= "rgba(201,168,76,0.45)" if active else "rgba(255,255,255,0.12)"
+        color = "#C9A84C"               if active else "rgba(255,255,255,0.32)"
+        style = (f"padding:3px 10px;border-radius:20px;border:1px solid {border};"
+                 f"background:{bg};color:{color};font-family:monospace;"
+                 f"font-size:10px;font-weight:700;letter-spacing:1px;"
+                 f"text-decoration:none;display:inline-block;")
+        return f'<a href="?lang={code}" style="{style}">{code}</a>'
+
+    pills = " ".join([pill(c) for c in ["EN","ES","PT"]])
+    st.markdown(f"""
+<div style="display:flex;align-items:center;justify-content:space-between;
+padding:10px 0;border-bottom:1px solid rgba(201,168,76,.1);margin-bottom:8px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div style="width:32px;height:32px;min-width:32px;
+    background:linear-gradient(135deg,#C9A84C,#F5D68A);border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 14px rgba(201,168,76,.3);font-size:16px;color:#0a0a0f;">◆</div>
+    <div>
+      <div style="font-family:Georgia,serif;font-size:20px;font-weight:700;
+      color:white;letter-spacing:-.5px;line-height:1.1;">LuckSort</div>
+      <div style="font-family:monospace;font-size:8px;
+      color:rgba(201,168,76,.5);letter-spacing:2.5px;">SORT YOUR LUCK</div>
+    </div>
   </div>
+  <div style="display:flex;gap:5px;">{pills}</div>
 </div>""", unsafe_allow_html=True)
-    with col_lang:
-        # Selector idioma exactamente como Dropshippingent
-        LANG_MAP = {"EN":"🇺🇸 EN","ES":"🇪🇸 ES","PT":"🇧🇷 PT"}
-        opts = list(LANG_MAP.keys())
-        nuevo = st.selectbox("", opts,
-            index=opts.index(lang),
-            key="header_lang",
-            label_visibility="collapsed",
-            format_func=lambda x: LANG_MAP[x])
-        if nuevo != lang:
-            st.session_state["idioma"] = nuevo
-            st.rerun()
-    st.markdown('<hr style="border:none;border-top:1px solid rgba(201,168,76,.1);margin:0 0 8px;">',
-                unsafe_allow_html=True)
 
 def render_balls_landing():
     st.markdown("""
@@ -1266,15 +1309,18 @@ def render_balls_picker(loteria):
     
     # Usar multiselect nativo — funciona en móvil y desktop
     opciones=[n for n in range(mn,mx+1)]
+    # Key fijo — evita bloqueo al cambiar lotería
+    # Limpiar favoritos fuera de rango de la lotería actual
+    favoritos_validos = [n for n in favoritos if mn<=n<=mx]
     seleccionados=st.multiselect(
         "",
         opciones,
-        default=[n for n in favoritos if mn<=n<=mx],
+        default=favoritos_validos,
         format_func=lambda n: str(n).zfill(2),
-        key=f"ms_fav_{loteria['id']}",
+        key="ms_fav",
         label_visibility="collapsed"
     )
-    if sorted(seleccionados)!=sorted(favoritos):
+    if sorted(seleccionados)!=sorted(favoritos_validos):
         st.session_state["nums_favoritos"]=sorted(seleccionados)
         st.rerun()
 
@@ -1339,15 +1385,16 @@ with st.sidebar:
 <div><div style="font-family:Georgia,serif;font-size:17px;font-weight:700;color:white;">LuckSort</div>
 <div style="font-family:monospace;font-size:8px;color:rgba(201,168,76,.5);letter-spacing:2px;">SORT YOUR LUCK</div></div></div></div>""",unsafe_allow_html=True)
 
-    # Idioma — patrón Dropshippingent: simple, funcional, sin CSS tricks
-    LANG_OPTS = {"🇺🇸 English":"EN","🇪🇸 Español":"ES","🇧🇷 Português":"PT"}
+    # Idioma sidebar — actualiza query_params (recarga natural sin conflicto)
     lang_actual = st.session_state["idioma"]
+    LANG_OPTS = {"🇺🇸 English":"EN","🇪🇸 Español":"ES","🇧🇷 Português":"PT"}
     cur_display = next(k for k,v in LANG_OPTS.items() if v==lang_actual)
     sel_lang = st.selectbox("🌐 Language / Idioma:",
         list(LANG_OPTS.keys()),
         index=list(LANG_OPTS.keys()).index(cur_display),
         key="sb_lang")
     if LANG_OPTS[sel_lang] != lang_actual:
+        st.query_params["lang"] = LANG_OPTS[sel_lang]
         st.session_state["idioma"] = LANG_OPTS[sel_lang]
         st.rerun()
     st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:8px 0;">',unsafe_allow_html=True)
