@@ -181,13 +181,6 @@ section[data-testid="stSidebar"] {
     0% { background-position: -200% center; }
     100% { background-position: 200% center; }
 }
-.shimmer-text {
-    background: linear-gradient(90deg, #C9A84C 0%, #F5D878 30%, #fff8e7 50%, #F5D878 70%, #C9A84C 100%);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: shimmer 3s linear infinite;
-}
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
@@ -199,26 +192,19 @@ section[data-testid="stSidebar"] {
 .ball {
     width: 52px; height: 52px;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.12), rgba(255,255,255,.03));
-    border: 1px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.15);
     display: inline-flex; align-items: center; justify-content: center;
     font-family: 'DM Mono', monospace;
     font-size: 16px; font-weight: 700;
     color: #e8e4d9;
     margin: 4px;
     animation: fadeUp .4s ease forwards;
-    box-shadow: 0 2px 12px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.1);
-    transition: transform .2s, box-shadow .2s;
-}
-.ball:hover {
-    transform: scale(1.08);
-    box-shadow: 0 4px 20px rgba(201,168,76,.25), inset 0 1px 0 rgba(255,255,255,.15);
 }
 .ball-gold {
-    background: radial-gradient(circle at 35% 35%, #F5D878, #C9A84C);
+    background: linear-gradient(135deg, #C9A84C, #F0C84A);
     color: #080810;
     border: none;
-    box-shadow: 0 0 20px rgba(201,168,76,.5), 0 0 40px rgba(201,168,76,.2), inset 0 1px 0 rgba(255,255,255,.4);
     animation: ballPulse 2s ease-in-out infinite, fadeUp .4s ease forwards;
 }
 
@@ -662,46 +648,37 @@ def preparar_candidatos(loteria, inputs, modulos):
         if mn <= n <= mx:
             add({"n":n, "math":f"Tu favorito", "fuente":"favorito", "peso":7})
 
-    # Histórico embebido — siempre disponible como base
+    # SIEMPRE — histórico embebido (no falla nunca)
     hist = HIST.get(loteria["nombre"], {})
+    for i, n in enumerate(hist.get("top", [])[:10]):
+        add({"n":n, "math":f"Top #{i+1} histórico {loteria['nombre']}", "fuente":"historico", "peso":4})
+    for n in hist.get("dia",{}).get(dia_str, [])[:3]:
+        add({"n":n, "math":f"Más frecuente los {dia_str} en {loteria['nombre']}", "fuente":"historico", "peso":5})
+    for n in hist.get("mes",{}).get(mes, [])[:3]:
+        add({"n":n, "math":f"Número líder en mes {mes} históricamente", "fuente":"historico", "peso":5})
+    for n in hist.get("cal", [])[:3]:
+        add({"n":n, "math":f"Número caliente — salió recientemente en {loteria['nombre']}", "fuente":"historico", "peso":4})
+    for n in hist.get("fri", [])[:2]:
+        if mn <= n <= mx:
+            add({"n":n, "math":f"Número frío — sin salir en semanas, estadísticamente vencido", "fuente":"historico", "peso":2})
 
-    # MÓDULO REAL — respeta checkboxes
+    # SIEMPRE — fecha de hoy
+    for v, m in [(hoy.day, f"Día {hoy.day} de hoy"), (hoy.month, f"Mes {hoy.month}"),
+                 (hoy.day+hoy.month, f"Día+Mes={hoy.day}+{hoy.month}={hoy.day+hoy.month}")]:
+        if mn <= v <= mx:
+            add({"n":v, "math":m, "fuente":"eventos", "peso":2})
+
+    # MÓDULO REAL — comunidad + eventos
     if "real" in modulos:
-        if inputs.get("use_hist", True):
-            for i, n in enumerate(hist.get("top", [])[:10]):
-                add({"n":n, "math":f"Top #{i+1} histórico {loteria['nombre']}", "fuente":"historico", "peso":4})
-            for n in hist.get("dia",{}).get(dia_str, [])[:3]:
-                add({"n":n, "math":f"Más frecuente los {dia_str} en {loteria['nombre']}", "fuente":"historico", "peso":5})
-            for n in hist.get("mes",{}).get(mes, [])[:3]:
-                add({"n":n, "math":f"Número líder en mes {mes} históricamente", "fuente":"historico", "peso":5})
-            for n in hist.get("cal", [])[:3]:
-                add({"n":n, "math":f"Número caliente — salió recientemente", "fuente":"historico", "peso":4})
-            for n in hist.get("fri", [])[:2]:
-                if mn <= n <= mx:
-                    add({"n":n, "math":f"Número frío — sin salir en semanas", "fuente":"historico", "peso":2})
-
-        if inputs.get("use_comm", True):
-            for item in obtener_reddit(loteria)[:5]:
-                add({"n":item["n"], "math":f"Mencionado {item.get('count',0)}× en comunidad hoy", "fuente":"community", "peso":3})
-
-        if inputs.get("use_efem", True):
-            efem = obtener_efemerides(hoy.month, hoy.day)
-            for ev in efem[:5]:
-                yr = ev.get("year", 0)
-                if yr:
-                    y2 = yr % 100
-                    if mn <= y2 <= mx:
-                        add({"n":y2, "math":f"{yr}: {ev.get('text','')[:40]}... → {y2}", "fuente":"eventos", "peso":2})
-
-        if inputs.get("use_hoy", True):
-            for v, m in [(hoy.day, f"Día {hoy.day} de hoy"), (hoy.month, f"Mes {hoy.month}"),
-                         (hoy.day+hoy.month, f"Día+Mes={hoy.day+hoy.month}")]:
-                if mn <= v <= mx:
-                    add({"n":v, "math":m, "fuente":"eventos", "peso":2})
-    else:
-        # Sin módulo real → histórico como fallback garantizado
-        for i, n in enumerate(hist.get("top", [])[:8]):
-            add({"n":n, "math":f"Top #{i+1} histórico {loteria['nombre']}", "fuente":"historico", "peso":3})
+        for item in obtener_reddit(loteria)[:5]:
+            add({"n":item["n"], "math":f"Mencionado {item.get('count',0)}× en la comunidad hoy", "fuente":"community", "peso":3})
+        efem = obtener_efemerides(hoy.month, hoy.day)
+        for ev in efem[:5]:
+            yr = ev.get("year", 0)
+            if yr:
+                y2 = yr % 100
+                if mn <= y2 <= mx:
+                    add({"n":y2, "math":f"{yr}: {ev.get('text','')[:40]}... → {y2}", "fuente":"eventos", "peso":2})
 
     # MÓDULO HOLÍSTICO
     if "holistic" in modulos:
@@ -1052,7 +1029,8 @@ if not st.session_state["logged_in"]:
   <h1 style="font-family:'Playfair Display',serif;font-size:clamp(30px,7vw,56px);
   font-weight:700;line-height:1.05;letter-spacing:-1.5px;color:white;margin-bottom:12px;">
     {t_['tagline']}<br>
-    <span class="shimmer-text">backed by the world</span>
+    <span style="background:linear-gradient(135deg,#C9A84C,#F0C84A);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;">backed by the world</span>
   </h1>
   <p style="font-size:15px;color:rgba(232,228,217,.38);max-width:420px;margin:0 auto;line-height:1.8;">
     {t_['subtitle']}
@@ -1208,7 +1186,7 @@ with st.expander(fav_label, expanded=False):
     st.caption(t_["fav_help"])
     opciones = list(range(mn, mx+1))
     favs_validos = [n for n in favs if mn<=n<=mx]
-    sel = st.multiselect("", opciones,
+    sel = st.multiselect(t_["fav_select"], opciones,
         default=favs_validos,
         format_func=lambda n: str(n).zfill(2),
         key=f"ms_fav_{loteria['id']}")
@@ -1225,16 +1203,12 @@ with st.expander(fav_label, expanded=False):
 # Real Data
 with st.expander(t_["real_title"], expanded=True):
     st.caption(t_["real_help"])
-    c_hist = st.checkbox("⊞ Histórico oficial", value=True,  key="cb_hist")
-    c_comm = st.checkbox("⊛ Comunidad",         value=True,  key="cb_comm")
-    c_efem = st.checkbox("⊕ Efemérides",        value=True,  key="cb_efem")
-    c_hoy  = st.checkbox("◈ Fecha de hoy",      value=True,  key="cb_hoy")
-    if any([c_hist, c_comm, c_efem, c_hoy]):
-        modulos.append("real")
-        inputs["use_hist"] = c_hist
-        inputs["use_comm"] = c_comm
-        inputs["use_efem"] = c_efem
-        inputs["use_hoy"]  = c_hoy
+    modulos.append("real")
+    crowd_pref = st.radio(t_["crowd_pref"],
+        [t_["balanced"], t_["follow"], t_["avoid"]],
+        horizontal=True, key="crowd_r")
+    inputs["crowd"] = {"Balanceado":"balanced","Balanced":"balanced","Balanceado":"balanced",
+                       t_["follow"]:"follow", t_["avoid"]:"avoid"}.get(crowd_pref,"balanced")
     inputs["excluir"] = st.text_input(t_["exclude"], placeholder="4, 13", key="ex_inp")
 
 # Holístico
@@ -1274,14 +1248,9 @@ if gen_hoy >= MAX_GEN and MAX_GEN < 99:
 else:
     if st.button(t_["generate"], key="gen_btn"):
         ph = st.empty()
-        steps_with_icons = list(zip(["⊞","⊛","ϕ","◆"], t_["steps"]))
-        for icon, step in steps_with_icons:
-            ph.markdown(f'''<div style="text-align:center;padding:24px 0;">
-<div class="conv-ring"></div>
-<div style="font-family:DM Mono,monospace;font-size:22px;color:rgba(201,168,76,.3);margin:8px 0;">{icon}</div>
-<div class="conv-label">{step}</div>
-</div>''', unsafe_allow_html=True)
-            time.sleep(0.6)
+        for step in t_["steps"]:
+            ph.markdown(f'<div style="text-align:center;padding:20px 0;"><div class="conv-ring"></div><div class="conv-label">{step}</div></div>', unsafe_allow_html=True)
+            time.sleep(0.5)
         ph.empty()
         resultado = generar(loteria, inputs, modulos)
         st.session_state["ultima_generacion"] = resultado
