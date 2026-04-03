@@ -185,7 +185,7 @@ LOTERIAS = [
     {"id":10, "nombre":"EuroJackpot",   "pais":"Europa",  "flag":"🇪🇺","min":1,"max":50,"n":5, "bonus":True, "bmax":12,"bname":"Euro Number","reddit":["eurojackpot","lottery"]},
     {"id":11, "nombre":"Canada Lotto",  "pais":"Canadá",  "flag":"🇨🇦","min":1,"max":49,"n":6, "bonus":True, "bmax":49,"bname":"Bonus","reddit":["canada","lottery"]},
 ]
-MAX_GEN = 5
+MAX_GEN = 3
 
 # ══════════════════════════════════════════
 # DATOS HISTÓRICOS REALES VERIFICADOS
@@ -1152,10 +1152,30 @@ def generar_aleatorio(loteria):
 # ══════════════════════════════════════════════════════
 def registrar_usuario(email,password):
     try:
-        if supabase.table("usuarios").select("email").eq("email",email).execute().data: return False,"exists"
-        res=supabase.table("usuarios").insert({"email":email,"password":password,"role":"free","generaciones_hoy":0,"fecha_uso":str(date.today())}).execute()
-        return (True,res.data[0]) if res.data else (False,"error")
-    except Exception as e: return False,str(e)
+        # Verificar si ya existe
+        check=supabase.table("usuarios").select("email").eq("email",email).execute()
+        if check.data: return False,"exists"
+        # Insertar nuevo usuario
+        res=supabase.table("usuarios").insert({
+            "email":email,
+            "password":password,
+            "role":"free",
+            "generaciones_hoy":0,
+            "fecha_uso":str(date.today())
+        }).execute()
+        if res.data:
+            return True, res.data[0]
+        else:
+            # Si no hay data pero tampoco error, intentar recuperar
+            rec=supabase.table("usuarios").select("*").eq("email",email).execute()
+            if rec.data: return True, rec.data[0]
+            return False,"error"
+    except Exception as e:
+        err=str(e)
+        # RLS policy error — tabla necesita política INSERT
+        if "row-level" in err.lower() or "policy" in err.lower() or "403" in err:
+            return False,"rls"
+        return False, err
 
 def login_usuario(email,password):
     try:
@@ -1254,7 +1274,7 @@ def render_header():
                  f"background:{bg};color:{color};font-family:monospace;"
                  f"font-size:10px;font-weight:700;letter-spacing:1px;"
                  f"text-decoration:none;display:inline-block;")
-        return f'<a href="?lang={code}" style="{style}">{code}</a>'
+        return f'<a href="?lang={code}" target="_self" style="{style}">{code}</a>'
 
     pills = " ".join([pill(c) for c in ["EN","ES","PT"]])
     st.markdown(f"""
@@ -1433,7 +1453,7 @@ with st.sidebar:
         role_color="#C9A84C" if role!="free" else "rgba(255,255,255,.3)"
         em_d=st.session_state["user_email"][:20]+"…" if len(st.session_state["user_email"])>22 else st.session_state["user_email"]
         st.markdown(f'<div style="padding:10px 12px;background:rgba(201,168,76,.05);border:1px solid rgba(201,168,76,.15);border-radius:10px;margin-bottom:10px;"><div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:3px;">{em_d}</div><div style="display:flex;align-items:center;gap:5px;"><div style="width:6px;height:6px;border-radius:50%;background:{role_color};"></div><span style="font-family:monospace;font-size:9px;color:{role_color};letter-spacing:1.5px;">{role_lbl.upper()}</span></div></div>',unsafe_allow_html=True)
-        for vista_key,label in [("app",f"◆ {t['tagline']}"),("history",f"⊞ {t['history']}"),("guardadas",f"★ {t['guardadas']}"),("comparador",f"⊕ {t['comparador']}")]:
+        for vista_key,label in [("app",f"◆ {t['tagline']}"),("history",f"⊞ {t['history']}"),("comparador",f"⊕ {t['comparador']}")]:
             if st.button(label,use_container_width=True,key=f"nav_{vista_key}"):
                 st.session_state["vista"]=vista_key; st.rerun()
         st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.06);margin:8px 0;">',unsafe_allow_html=True)
@@ -1472,7 +1492,8 @@ if not st.session_state["logged_in"]:
                         st.session_state.update({"logged_in":True,"user_role":"free","user_email":re_,"user_id":res["id"],"vista":"app"})
                         email_bienvenida(re_); st.rerun()
                     elif res=="exists": st.error(t["email_exists"])
-                    else: st.error("⚠️ Error.")
+                    elif res=="rls": st.error("⚠️ DB permission error. Contact support.")
+                    else: st.error(f"⚠️ {res[:80] if isinstance(res,str) else 'Error.'}")
         with tab_l:
             le=st.text_input(t["email"],key="ll_e"); lp=st.text_input(t["password"],type="password",key="ll_p")
             if st.button(t["btn_login"],use_container_width=True,key="ll_b"):
@@ -1592,15 +1613,13 @@ elif st.session_state.get("vista")=="app":
         st.warning(f"⚠️ {t['gen_counter']}: {MAX_GEN}/{MAX_GEN}")
     else:
         if st.button(f"◆ {t['generate_btn']}",use_container_width=True,key="gen_btn"):
-            if es_paid or st.session_state["user_role"]=="admin":
-                ph=st.empty()
-                for step in t["conv_steps"]:
-                    ph.markdown(f'<div style="text-align:center;padding:18px 0;"><div class="conv-ring"></div><div class="conv-label">{step}</div></div>',unsafe_allow_html=True)
-                    time.sleep(0.55)
-                ph.empty()
-                resultado=generar_combinacion(loteria,inputs,modulos)
-            else:
-                with st.spinner(t["generating"]): resultado=generar_aleatorio(loteria)
+            # Plan A: todos los módulos disponibles, free limita generaciones
+            ph=st.empty()
+            for step in t["conv_steps"]:
+                ph.markdown(f'<div style="text-align:center;padding:18px 0;"><div class="conv-ring"></div><div class="conv-label">{step}</div></div>',unsafe_allow_html=True)
+                time.sleep(0.55)
+            ph.empty()
+            resultado=generar_combinacion(loteria,inputs,modulos)
             st.session_state["ultima_generacion"]=resultado
             st.session_state["ultima_loteria"]=loteria
             st.session_state["ultima_modulos"]=modulos
@@ -1632,22 +1651,41 @@ elif st.session_state.get("vista")=="app":
 <div style="font-size:9px;color:rgba(255,255,255,.2);font-family:monospace;letter-spacing:1px;">lucksort.com · SORT YOUR LUCK</div>
 </div>''', unsafe_allow_html=True)
 
-        # Botones acción — nivel principal, sin contexto de columna anidado
-        st.markdown(f'<div style="font-family:monospace;font-size:9px;color:rgba(255,255,255,.25);letter-spacing:2px;margin:10px 0 6px;">{t.get("share_copy","COPY")}</div>',unsafe_allow_html=True)
+        # Copiar números — disponible para todos
         share_text=f"🎯 {ult_lot['nombre']}: {nums_str}{bonus_s}\n\nLuckSort — Sort Your Luck\nlucksort.com"
         st.code(share_text,language=None)
-        btn_c1,btn_c2=st.columns(2)
-        with btn_c1:
-            if st.button(t.get("save_combo","Save"),use_container_width=True,key="btn_save"):
-                ok=guardar_combo_sesion(ult_res,ult_lot)
-                if ok: st.success(t.get("saved_ok","✅ Saved"))
-                else: st.info("Ya guardada")
-        with btn_c2:
+
+        # Descargar postal HTML — plan pago
+        if es_paid or st.session_state["user_role"]=="admin":
+            # Generar postal como HTML descargable
+            _nums_h="".join([f'<div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-family:monospace;font-size:16px;font-weight:700;color:white;margin:4px;">{str(n).zfill(2)}</div>' for n in _nums])
+            if _bonus: _nums_h+=f'<div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#C9A84C,#F5D68A);display:inline-flex;align-items:center;justify-content:center;font-family:monospace;font-size:16px;font-weight:700;color:#0a0a0f;margin:4px;">{str(_bonus).zfill(2)}</div>'
+            _mod=ult_mod[0] if ult_mod else "real"
+            _bg={"math":"#0a0f1a","holistic":"#0a0a18","real":"#0a0f0a"}.get(_mod,"#0a0a0f")
+            _ac={"math":"#7B9FCC","holistic":"#9B8FCC","real":"#7BAA7B"}.get(_mod,"#C9A84C")
+            postal_html_dl=f"""<!DOCTYPE html><html><body style="background:{_bg};display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;font-family:Georgia,serif;">
+<div style="background:{_bg};border:1px solid rgba(201,168,76,.3);border-radius:24px;padding:40px;text-align:center;max-width:400px;">
+<div style="font-size:12px;color:{_ac};letter-spacing:3px;font-family:monospace;margin-bottom:6px;">{ult_lot['flag']} {ult_lot['nombre'].upper()}</div>
+<div style="display:flex;flex-wrap:wrap;justify-content:center;margin:20px 0;">{_nums_h}</div>
+<div style="font-size:10px;color:rgba(255,255,255,.3);font-family:monospace;letter-spacing:2px;margin-top:12px;">lucksort.com · SORT YOUR LUCK</div>
+</div></body></html>"""
+            st.download_button(
+                label=t.get("share_card","⬇ Download Card"),
+                data=postal_html_dl,
+                file_name=f"lucksort_{ult_lot['nombre'].replace(' ','_')}.html",
+                mime="text/html",
+                use_container_width=True,
+                key="dl_postal"
+            )
+            # Email
             if st.session_state.get("user_email") and RESEND_KEY:
-                if st.button(t.get("email_combo","Email"),use_container_width=True,key="btn_email"):
+                if st.button(t.get("email_combo","📧 Send by email"),use_container_width=True,key="btn_email"):
                     ok=email_combo(st.session_state["user_email"],ult_lot,ult_res)
                     if ok: st.success(t.get("email_sent","✅"))
                     else: st.warning(t.get("email_err","⚠️"))
+        else:
+            # Free: mostrar upgrade para postal
+            st.markdown(f'<div style="text-align:center;padding:10px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.15);border-radius:10px;font-family:monospace;font-size:11px;color:rgba(201,168,76,.6);">⬇ {t.get("share_card","Download Card")} — {t["paid"]} plan</div>',unsafe_allow_html=True)
 
     if es_free:
         st.markdown('<hr style="border:none;border-top:1px solid rgba(255,255,255,.04);margin:16px 0;">',unsafe_allow_html=True)
