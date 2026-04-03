@@ -632,38 +632,42 @@ def obtener_reddit_rapidapi(loteria):
     nums = []
     try:
         r = requests.get(
-            f"https://reddit-scraper2.p.rapidapi.com/sub_posts?sub={sub}&sort=hot&limit=20",
-            headers={"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "reddit-scraper2.p.rapidapi.com"},
+            "https://reddit34.p.rapidapi.com/getPostsBySubreddit",
+            headers={"X-RapidAPI-Key": RAPIDAPI_KEY, "X-RapidAPI-Host": "reddit34.p.rapidapi.com"},
+            params={"subreddit": sub, "sort": "hot", "limit": "20"},
             timeout=8)
         if r.status_code == 200:
-            posts = r.json().get("data", {}).get("posts", []) or r.json().get("data", [])
+            data = r.json()
+            posts = data.get("data", data.get("posts", []))
+            if isinstance(posts, dict): posts = posts.get("children", [])
             for p in posts:
-                txt = str(p.get("title","")) + str(p.get("selftext","")) + str(p.get("content",""))
-                for n in re.findall(r"\b(\d{1,2})\b", txt):
+                pd = p.get("data", p)
+                txt = str(pd.get("title","")) + str(pd.get("selftext","")) + str(pd.get("body",""))
+                for n in re.findall(r"(\d{1,2})", txt):
                     v = int(n)
                     if mn <= v <= mx: nums.append(v)
     except: pass
     return nums
 
 def obtener_tiktok_loteria(loteria):
-    """TikTok trending para lotería"""
+    """TikTok trending para lotería — endpoint exacto de Dropshippingent"""
     mn, mx = loteria["min"], loteria["max"]
-    keywords = {"Powerball":"powerball lottery","Mega Millions":"mega millions lottery",
-                "Baloto":"baloto colombia","EuroMillions":"euromillions",
-                "Mega-Sena":"mega sena","Lotofácil":"lotofacil"}
-    kw = keywords.get(loteria["nombre"], f"{loteria['nombre']} lottery")
+    keywords = {"Powerball":"powerball lottery numbers","Mega Millions":"mega millions lottery",
+                "Baloto":"baloto colombia numeros","EuroMillions":"euromillions lottery",
+                "Mega-Sena":"mega sena loteria","Lotofácil":"lotofacil numeros"}
+    kw = keywords.get(loteria["nombre"], f"{loteria['nombre']} lottery numbers")
     nums = []
     try:
         r = requests.get(
             "https://tiktok-scraper7.p.rapidapi.com/feed/search",
-            params={"keywords": kw, "region": "us", "count": "20"},
-            headers={"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "tiktok-scraper7.p.rapidapi.com"},
-            timeout=8)
+            headers={"X-RapidAPI-Key": RAPIDAPI_KEY, "X-RapidAPI-Host": "tiktok-scraper7.p.rapidapi.com"},
+            params={"keywords": kw, "region": "us", "count": "20", "cursor": "0", "publish_time": "0", "sort_type": "0"},
+            timeout=10)
         if r.status_code == 200:
             videos = r.json().get("data", {}).get("videos", [])
             for v in videos:
                 txt = str(v.get("title","")) + str(v.get("desc",""))
-                for n in re.findall(r"\b(\d{1,2})\b", txt):
+                for n in re.findall(r"(\d{1,2})", txt):
                     val = int(n)
                     if mn <= val <= mx: nums.append(val)
     except: pass
@@ -680,16 +684,28 @@ def obtener_ultimo_sorteo(loteria):
     nums = []
     try:
         r = requests.get(
-            f"https://lottery-results-usa.p.rapidapi.com/results/{nombre_api}/latest",
-            headers={"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "lottery-results-usa.p.rapidapi.com"},
+            "https://usa-lottery-result-all-state-api.p.rapidapi.com/lottery-results/main-draw",
+            headers={
+                "X-RapidAPI-Key": RAPIDAPI_KEY,
+                "X-RapidAPI-Host": "usa-lottery-result-all-state-api.p.rapidapi.com"
+            },
             timeout=8)
         if r.status_code == 200:
             data = r.json()
-            winning = data.get("winning_numbers", data.get("numbers", []))
-            for n in winning:
-                v = int(str(n))
-                if mn <= v <= mx:
-                    nums.append({"n":v, "math":f"Salió en el último sorteo de {loteria['nombre']}", "fuente":"community", "count":99})
+            # Buscar números de Powerball o Mega Millions
+            results = data if isinstance(data, list) else data.get("data", data.get("results", []))
+            if isinstance(results, dict): results = [results]
+            for item in results[:2]:
+                nombre_item = str(item.get("game","") + item.get("name","")).lower()
+                if nombre_api in nombre_item or nombre_item in nombre_api:
+                    winning = item.get("winning_numbers", item.get("numbers", item.get("draw_result",[])))
+                    if isinstance(winning, str): winning = winning.split("-")
+                    for n in winning:
+                        try:
+                            v = int(str(n).strip())
+                            if mn <= v <= mx:
+                                nums.append({"n":v, "math":f"Salió en el último sorteo oficial de {loteria['nombre']}", "fuente":"community", "count":99})
+                        except: pass
     except: pass
     return nums
 
