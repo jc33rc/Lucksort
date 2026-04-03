@@ -328,10 +328,11 @@ try:
     GROQ_KEY     = st.secrets["GROQ_API_KEY"]
     SB_URL       = st.secrets["SUPABASE_URL"]
     SB_KEY       = st.secrets["SUPABASE_KEY"]
-    RESEND_KEY   = st.secrets.get("RESEND_API_KEY", "")
-    STRIPE_LINK  = st.secrets.get("STRIPE_LINK", "#")
-    ADMIN_EMAIL  = st.secrets.get("ADMIN_EMAIL", "hello@lucksort.com")
-    ADMIN_PASS   = st.secrets.get("ADMIN_PASS", "lucksort123")
+    RESEND_KEY    = st.secrets.get("RESEND_API_KEY", "")
+    STRIPE_LINK   = st.secrets.get("STRIPE_LINK", "#")
+    ADMIN_EMAIL   = st.secrets.get("ADMIN_EMAIL", "hello@lucksort.com")
+    ADMIN_PASS    = st.secrets.get("ADMIN_PASS", "lucksort123")
+    RAPIDAPI_KEY  = st.secrets.get("RAPIDAPI_KEY", "386d8fba4emsh2be529fdcd512dap151bdajsn2f66f55fc0b2")
 except:
     st.error("⚠️ Configura los secrets en Streamlit Cloud")
     st.stop()
@@ -508,6 +509,25 @@ HIST = {
     "Canada Lotto":  {"top":[20,33,34,40,44,6,19,32,43,39,7,13,24,37,16],"cal":[20,33,34,40,44],"fri":[49,48,47,46,45],"dia":{"Wed":[20,33,34],"Sat":[6,19,32]},"mes":{1:[20,33],2:[40,44],3:[19,32],4:[43,39],5:[7,13],6:[24,37],7:[16,3],8:[28,42],9:[20,14],10:[33,34],11:[40,6],12:[19,32]}},
 }
 
+# Días de sorteo — solo consultamos API en estos días
+SORTEO_DIAS = {
+    "Powerball":     [0,2,5],  # Lun, Mié, Sáb
+    "Mega Millions": [1,4],    # Mar, Vie
+    "EuroMillions":  [1,4],    # Mar, Vie
+    "Baloto":        [2,5],    # Mié, Sáb
+    "UK Lotto":      [2,5],    # Mié, Sáb
+    "Mega-Sena":     [2,5],    # Mié, Sáb
+    "El Gordo":      [6],      # Dom
+    "La Primitiva":  [3,5],    # Jue, Sáb
+    "EuroJackpot":   [1,4],    # Mar, Vie
+    "Canada Lotto":  [2,5],    # Mié, Sáb
+    "Lotofácil":     [0,1,2,3,4,5], # L-S
+}
+
+def es_dia_sorteo(loteria_nombre):
+    dias = SORTEO_DIAS.get(loteria_nombre, [])
+    return datetime.now().weekday() in dias
+
 ICONS = {
     "historico": "⊞", "community": "⊛", "eventos": "⊕",
     "numerologia": "ᚨ", "lunar": "◐", "sueno": "∞",
@@ -600,31 +620,128 @@ def set_cache(tipo, contenido):
             supabase.table("cache_diario").insert({"fecha": hoy, "tipo": tipo, "contenido": data}).execute()
     except: pass
 
-def obtener_reddit(loteria):
-    tipo = f"reddit_{loteria['id']}"
-    c = get_cache(tipo)
-    if c: return c
+def obtener_reddit_rapidapi(loteria):
+    """Reddit via RapidAPI — sin bloqueos"""
     mn, mx = loteria["min"], loteria["max"]
-    nums = []
-    subs = {"Powerball":"powerball","Mega Millions":"megamillions","EuroMillions":"euromillions",
-            "UK Lotto":"uklottery","Baloto":"colombia","Mega-Sena":"megasena","El Gordo":"spain",
-            "La Primitiva":"spain","EuroJackpot":"eurojackpot","Canada Lotto":"lottery","Lotofácil":"brasil"}
+    subs = {"Powerball":"powerball","Mega Millions":"megamillions",
+            "EuroMillions":"euromillions","UK Lotto":"uklottery",
+            "Baloto":"colombia","Mega-Sena":"megasena","El Gordo":"spain",
+            "La Primitiva":"spain","EuroJackpot":"eurojackpot",
+            "Canada Lotto":"lottery","Lotofácil":"brasil"}
     sub = subs.get(loteria["nombre"], "lottery")
+    nums = []
     try:
-        r = requests.get(f"https://www.reddit.com/r/{sub}/hot.json?limit=20",
-                        headers={"User-Agent":"Mozilla/5.0 LuckSort/1.0"}, timeout=6)
+        r = requests.get(
+            f"https://reddit-scraper2.p.rapidapi.com/sub_posts?sub={sub}&sort=hot&limit=20",
+            headers={"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "reddit-scraper2.p.rapidapi.com"},
+            timeout=8)
         if r.status_code == 200:
-            for p in r.json().get("data",{}).get("children",[]):
-                txt = p.get("data",{}).get("title","") + p.get("data",{}).get("selftext","")
-                for n in re.findall(r'\b(\d{1,2})\b', txt):
+            posts = r.json().get("data", {}).get("posts", []) or r.json().get("data", [])
+            for p in posts:
+                txt = str(p.get("title","")) + str(p.get("selftext","")) + str(p.get("content",""))
+                for n in re.findall(r"\b(\d{1,2})\b", txt):
                     v = int(n)
                     if mn <= v <= mx: nums.append(v)
     except: pass
-    if nums:
-        top = [{"n":n,"count":c,"fuente":"community"} for n,c in Counter(nums).most_common(10)]
-        set_cache(tipo, top)
-        return top
-    return []
+    return nums
+
+def obtener_tiktok_loteria(loteria):
+    """TikTok trending para lotería"""
+    mn, mx = loteria["min"], loteria["max"]
+    keywords = {"Powerball":"powerball lottery","Mega Millions":"mega millions lottery",
+                "Baloto":"baloto colombia","EuroMillions":"euromillions",
+                "Mega-Sena":"mega sena","Lotofácil":"lotofacil"}
+    kw = keywords.get(loteria["nombre"], f"{loteria['nombre']} lottery")
+    nums = []
+    try:
+        r = requests.get(
+            "https://tiktok-scraper7.p.rapidapi.com/feed/search",
+            params={"keywords": kw, "region": "us", "count": "20"},
+            headers={"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "tiktok-scraper7.p.rapidapi.com"},
+            timeout=8)
+        if r.status_code == 200:
+            videos = r.json().get("data", {}).get("videos", [])
+            for v in videos:
+                txt = str(v.get("title","")) + str(v.get("desc",""))
+                for n in re.findall(r"\b(\d{1,2})\b", txt):
+                    val = int(n)
+                    if mn <= val <= mx: nums.append(val)
+    except: pass
+    return nums
+
+def obtener_ultimo_sorteo(loteria):
+    """Último resultado real via RapidAPI Lottery"""
+    nombres_api = {
+        "Powerball": "powerball", "Mega Millions": "mega-millions",
+    }
+    nombre_api = nombres_api.get(loteria["nombre"])
+    if not nombre_api: return []
+    mn, mx = loteria["min"], loteria["max"]
+    nums = []
+    try:
+        r = requests.get(
+            f"https://lottery-results-usa.p.rapidapi.com/results/{nombre_api}/latest",
+            headers={"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "lottery-results-usa.p.rapidapi.com"},
+            timeout=8)
+        if r.status_code == 200:
+            data = r.json()
+            winning = data.get("winning_numbers", data.get("numbers", []))
+            for n in winning:
+                v = int(str(n))
+                if mn <= v <= mx:
+                    nums.append({"n":v, "math":f"Salió en el último sorteo de {loteria['nombre']}", "fuente":"community", "count":99})
+    except: pass
+    return nums
+
+def obtener_comunidad(loteria):
+    """
+    Comunidad con 3 fuentes RapidAPI + caché inteligente.
+    Solo consulta API en días de sorteo.
+    """
+    tipo = f"comunidad_{loteria['id']}"
+    c = get_cache(tipo)
+    if c: return c
+
+    mn, mx = loteria["min"], loteria["max"]
+    todos_nums = []
+
+    # Solo consulta APIs en días de sorteo o si no hay caché
+    if es_dia_sorteo(loteria["nombre"]):
+        # Fuente 1 — Último sorteo real
+        sorteo = obtener_ultimo_sorteo(loteria)
+        for item in sorteo:
+            todos_nums.append({"n":item["n"], "count":99,
+                "math":f"Salió en el último sorteo oficial de {loteria['nombre']}",
+                "fuente":"community", "red":"Resultado oficial"})
+
+        # Fuente 2 — Reddit via RapidAPI
+        reddit_nums = obtener_reddit_rapidapi(loteria)
+        todos_nums.extend([{"n":n, "count":c,
+            "math":f"Mencionado {c}× en r/{loteria['nombre'].lower().replace(' ','')} esta semana",
+            "fuente":"community", "red":"Reddit"}
+            for n,c in Counter(reddit_nums).most_common(8) if mn<=n<=mx])
+
+        # Fuente 3 — TikTok trending
+        tiktok_nums = obtener_tiktok_loteria(loteria)
+        todos_nums.extend([{"n":n, "count":c,
+            "math":f"Trending en TikTok bajo #{loteria['nombre'].lower().replace(' ','')}",
+            "fuente":"community", "red":"TikTok"}
+            for n,c in Counter(tiktok_nums).most_common(5) if mn<=n<=mx])
+
+    # Guardar en caché si hay datos
+    if todos_nums:
+        set_cache(tipo, todos_nums)
+        return todos_nums
+
+    # Fallback — calientes del histórico
+    calientes = HIST.get(loteria["nombre"],{}).get("cal",[])
+    return [{"n":n, "count":1,
+        "math":f"Número caliente histórico en {loteria['nombre']}",
+        "fuente":"community", "red":"Histórico"}
+        for n in calientes if mn<=n<=mx]
+
+def obtener_reddit(loteria):
+    return obtener_comunidad(loteria)
 
 def obtener_efemerides(mes, dia):
     tipo = f"efem_{mes}_{dia}"
@@ -681,8 +798,11 @@ def preparar_candidatos(loteria, inputs, modulos):
                     add({"n":n, "math":f"Número frío — sin salir en semanas", "fuente":"historico", "peso":2})
 
         if inputs.get("use_comm", True):
-            for item in obtener_reddit(loteria)[:5]:
-                add({"n":item["n"], "math":f"Mencionado {item.get('count',0)}× en comunidad hoy", "fuente":"community", "peso":3})
+            for item in obtener_comunidad(loteria)[:6]:
+                red = item.get("red","comunidad")
+                add({"n":item["n"],
+                    "math":item.get("math", f"Mencionado en {red}"),
+                    "fuente":"community", "peso":4})
 
         if inputs.get("use_efem", True):
             efem = obtener_efemerides(hoy.month, hoy.day)
