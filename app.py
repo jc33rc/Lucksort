@@ -158,8 +158,9 @@ try:
     SB_URL      = st.secrets["SUPABASE_URL"]
     SB_KEY      = st.secrets["SUPABASE_KEY"]
     RESEND_KEY  = st.secrets.get("RESEND_API_KEY","")
-    ADMIN_EMAIL = st.secrets.get("ADMIN_EMAIL","admin@lucksort.com")
-    ADMIN_PASS  = st.secrets.get("ADMIN_PASS","admin123")
+    ADMIN_EMAIL  = st.secrets.get("ADMIN_EMAIL","admin@lucksort.com")
+    ADMIN_EMAIL2 = "hello@lucksort.com"
+    ADMIN_PASS   = st.secrets.get("ADMIN_PASS","admin123")
     NEWS_KEY    = st.secrets.get("NEWS_API_KEY","")
     STRIPE_LINK = st.secrets.get("STRIPE_PAYMENT_LINK","https://buy.stripe.com/lucksort")
 except:
@@ -847,7 +848,6 @@ def preparar_datos(loteria, inputs, modulos):
     mn,mx = loteria["min"],loteria["max"]
     hoy = datetime.now()
     candidatos = []
-    print(f"[LUCKSORT] preparar_datos inicio — modulos={modulos} inputs_keys={list(inputs.keys())}")
     usados = set()
     for gen in st.session_state.get("historial_sesion",[])[-3:]:
         usados.update(gen)
@@ -976,7 +976,6 @@ def preparar_datos(loteria, inputs, modulos):
             for n in set(frac):
                 if mn<=n<=mx: add({"n":n,"math":f"Fractal — auto-similitud en {n}","fuente":"fractal","peso":2})
 
-    print(f"[LUCKSORT] candidatos generados: {len(candidatos)}")
     # Deduplicar — mejor peso gana
     mejor={}
     for c in candidatos:
@@ -1101,8 +1100,6 @@ Responde SOLO en {lang_full}. Devuelve SOLO JSON válido sin HTML:
             max_tokens=1800
         )
         raw=resp.choices[0].message.content.strip()
-        print(f"[LUCKSORT GROQ] candidatos enviados: {len(ordenados)}")
-        print(f"[LUCKSORT GROQ] respuesta raw: {raw[:300]}")
         if "```" in raw: raw=raw.split("```")[1].replace("json","").strip()
         res=json.loads(raw)
 
@@ -1132,9 +1129,7 @@ Responde SOLO en {lang_full}. Devuelve SOLO JSON válido sin HTML:
         hist=st.session_state.get("historial_sesion",[])
         hist.append(res["numbers"]); st.session_state["historial_sesion"]=hist[-5:]
         return res
-    except Exception as _e:
-        print(f"[LUCKSORT ERROR generar_combinacion] {type(_e).__name__}: {_e}")
-        import traceback; traceback.print_exc()
+    except:
         return generar_fallback(loteria,excluir,ordenados)
 
 def generar_fallback(loteria,excluir=[],candidatos=[]):
@@ -1411,7 +1406,7 @@ with st.sidebar:
         with tab_in:
             em=st.text_input(t["email"],key="si_e"); pw=st.text_input(t["password"],type="password",key="si_p")
             if st.button(t["btn_login"],use_container_width=True,key="btn_si"):
-                if em==ADMIN_EMAIL and pw==ADMIN_PASS:
+                if (em==ADMIN_EMAIL or em==ADMIN_EMAIL2) and pw==ADMIN_PASS:
                     st.session_state.update({"logged_in":True,"user_role":"admin","user_email":em,"user_id":None,"vista":"app"}); st.rerun()
                 else:
                     ok,datos=login_usuario(em,pw)
@@ -1482,7 +1477,7 @@ if not st.session_state["logged_in"]:
         with tab_l:
             le=st.text_input(t["email"],key="ll_e"); lp=st.text_input(t["password"],type="password",key="ll_p")
             if st.button(t["btn_login"],use_container_width=True,key="ll_b"):
-                if le==ADMIN_EMAIL and lp==ADMIN_PASS:
+                if (le==ADMIN_EMAIL or le==ADMIN_EMAIL2) and lp==ADMIN_PASS:
                     st.session_state.update({"logged_in":True,"user_role":"admin","user_email":le,"user_id":None,"vista":"app"}); st.rerun()
                 else:
                     ok,datos=login_usuario(le,lp)
