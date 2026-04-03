@@ -501,207 +501,169 @@ def generar(loteria, inputs, modulos):
     lang = st.session_state["idioma"]
     lang_full = {"ES":"Spanish","EN":"English","PT":"Portuguese"}[lang]
     mn, mx = loteria["min"], loteria["max"]
+    fav = st.session_state.get("favoritos", [])
+    seed = random.randint(1000, 9999)
+    bonus_txt = f"1 {loteria['bname']} 1-{loteria['bmax']}" if loteria["bonus"] else "sin bonus"
 
+    # Obtener candidatos con contexto
     candidatos, sets_mat = preparar_contexto(loteria, inputs, modulos)
 
+    # Excluir numeros
     excluir = []
     if inputs.get("excluir"):
         try: excluir = [int(x.strip()) for x in inputs["excluir"].split(",") if x.strip().isdigit()]
         except: pass
 
     validos = [c for c in candidatos if c["n"] not in excluir]
-    fav = st.session_state.get("favoritos", [])
-    seed = random.randint(1000, 9999)
-    bonus_txt = f"1 {loteria['bname']} 1-{loteria['bmax']} (pool SEPARADO)" if loteria["bonus"] else "sin bonus"
-    hist = HIST.get(loteria["nombre"], {})
 
-    # ── PRE-SELECCIÓN PYTHON — garantiza distribución entre módulos ──
-    preseleccion = []
-    usados_pre = set(fav) & set(c["n"] for c in validos)
+    # ════════════════════════════════════════
+    # PYTHON PRE-SELECCIONA — Groq solo narra
+    # ════════════════════════════════════════
+    seleccion = []  # lista de dicts {n, fuente, math}
 
-    # 1. Favoritos primero
+    def ya_elegido(n):
+        return any(s["n"] == n for s in seleccion)
+
+    def mejor_de_fuente(fuente):
+        pool = [c for c in validos if c["fuente"] == fuente and not ya_elegido(c["n"])]
+        return pool[0] if pool else None
+
+    # 1. Favoritos
     for n in fav:
-        if any(c["n"]==n for c in validos) and n not in [p["n"] for p in preseleccion]:
-            preseleccion.append({"n":n,"fuente":"favorito"})
+        c = next((x for x in validos if x["n"]==n), None)
+        if c and not ya_elegido(n) and len(seleccion) < loteria["n"]:
+            seleccion.append({"n": n, "fuente": "favorito", "math": "Tu numero favorito"})
 
-    # 2. Un número obligatorio de cada módulo activo
+    # 2. Un numero de cada modulo activo (OBLIGATORIO)
     if "math" in modulos:
-        for fuente in ["fibonacci","tesla","sagrada","primos"]:
-            candidatos_f = [c for c in validos if c["fuente"]==fuente and c["n"] not in [p["n"] for p in preseleccion]]
-            if candidatos_f and len(preseleccion) < loteria["n"]:
-                elegido = random.choice(candidatos_f[:3])
-                preseleccion.append({"n":elegido["n"],"fuente":fuente})
-                break
+        for fuente in ["fibonacci", "tesla", "sagrada", "primos"]:
+            c = mejor_de_fuente(fuente)
+            if c and len(seleccion) < loteria["n"]:
+                seleccion.append({"n": c["n"], "fuente": fuente, "math": c["math"]})
+                break  # solo 1 matematico por defecto
 
     if "holistic" in modulos:
-        for fuente in ["numerologia","lunar"]:
-            candidatos_f = [c for c in validos if c["fuente"]==fuente and c["n"] not in [p["n"] for p in preseleccion]]
-            if candidatos_f and len(preseleccion) < loteria["n"]:
-                elegido = candidatos_f[0]
-                preseleccion.append({"n":elegido["n"],"fuente":fuente})
+        for fuente in ["numerologia", "lunar", "fecha"]:
+            c = mejor_de_fuente(fuente)
+            if c and len(seleccion) < loteria["n"]:
+                seleccion.append({"n": c["n"], "fuente": fuente, "math": c["math"]})
                 break
 
     if "real" in modulos:
-        # Comunidad primero
-        candidatos_comm = [c for c in validos if c["fuente"]=="community" and c["n"] not in [p["n"] for p in preseleccion]]
-        if candidatos_comm and len(preseleccion) < loteria["n"]:
-            preseleccion.append({"n":candidatos_comm[0]["n"],"fuente":"community"})
-        # Histórico
-        candidatos_hist = [c for c in validos if c["fuente"]=="historico" and c["n"] not in [p["n"] for p in preseleccion]]
-        if candidatos_hist and len(preseleccion) < loteria["n"]:
-            preseleccion.append({"n":candidatos_hist[0]["n"],"fuente":"historico"})
+        # Comunidad
+        c = mejor_de_fuente("community")
+        if c and len(seleccion) < loteria["n"]:
+            seleccion.append({"n": c["n"], "fuente": "community", "math": c["math"]})
+        # Historico
+        c = mejor_de_fuente("historico")
+        if c and len(seleccion) < loteria["n"]:
+            seleccion.append({"n": c["n"], "fuente": "historico", "math": c["math"]})
 
-    # 3. Completar con mejores candidatos disponibles
-    nums_pre = [p["n"] for p in preseleccion]
-    restantes = [c for c in validos if c["n"] not in nums_pre]
-    while len(preseleccion) < loteria["n"] and restantes:
-        preseleccion.append({"n":restantes[0]["n"],"fuente":restantes[0]["fuente"]})
-        restantes.pop(0)
+    # 3. Completar con mejores candidatos restantes
+    for c in validos:
+        if len(seleccion) >= loteria["n"]: break
+        if not ya_elegido(c["n"]):
+            seleccion.append({"n": c["n"], "fuente": c["fuente"], "math": c.get("math","")})
 
-    # Lista final para Groq — ya distribuida
-    nums_fijos = [p["n"] for p in preseleccion]
+    # Garantizar exactamente n numeros
+    if len(seleccion) < loteria["n"]:
+        pool = [n for n in range(mn, mx+1) if n not in excluir and not ya_elegido(n)]
+        random.shuffle(pool)
+        for n in pool:
+            if len(seleccion) >= loteria["n"]: break
+            seleccion.append({"n": n, "fuente": "complement", "math": ""})
 
-    prompt = f"""Genera narrativas expertas para esta combinacion de loteria.
-LOTERIA: {loteria['nombre']} | IDIOMA: {lang_full}
-MODULOS: {modulos}
-SUENO: "{inputs.get('sueno','ninguno')}"
+    seleccion = seleccion[:loteria["n"]]
+    nums_finales = [s["n"] for s in seleccion]
 
-NUMEROS YA ELEGIDOS (no cambiar): {nums_fijos}
-BONUS SEPARADO: {f'elige 1 numero entre 1-{loteria["bmax"]}' if loteria["bonus"] else 'null'}
+    # Bonus
+    bonus = None
+    if loteria["bonus"]:
+        pool_b = [c["n"] for c in validos if 1<=c["n"]<=loteria["bmax"] and c["n"] not in nums_finales]
+        bonus = pool_b[0] if pool_b else random.randint(1, loteria["bmax"])
 
-DATOS DE CANDIDATOS:
-{json.dumps([c for c in validos if c["n"] in nums_fijos], ensure_ascii=False)}
-
-INSTRUCCION: Escribe una narrativa experta en {lang_full} para cada numero segun su fuente:
-- fibonacci: formula exacta F(n-1)+F(n-2)=N y posicion en la secuencia
-- tesla: N es multiplo de 3, patron 3-6-9
-- sagrada: N = phi x K proporcion aurea  
-- primos: N es primo — sus propiedades matematicas
-- numerologia: reduccion paso a paso del nombre/fecha
-- lunar: fase lunar actual dia N del ciclo
-- community: mencionado X veces en la comunidad
-- historico: frecuencia especifica en {loteria['nombre']} — mes, dia de sorteo
-- favorito: confirmar preferencia del usuario
-5. Bonus de pool SEPARADO: {f'elige entre 1-{loteria["bmax"]}' if loteria["bonus"] else 'null'}
-
-Para cada numero, escribe una narrativa experta en {lang_full}:
-- fibonacci: menciona la posicion en la secuencia y la formula
-- tesla: menciona el patron 3-6-9
-- sagrada: menciona la proporcion aurea phi
-- primos: menciona la indivisibilidad
-- numerologia: menciona la reduccion del nombre o fecha
-- lunar: menciona el ciclo lunar
-- community: menciona las menciones en la comunidad
-- historico: menciona la frecuencia historica
-- favorito: confirma la preferencia del usuario
-
-Responde SOLO JSON sin markdown:
-{{"bonus": {"entero 1-" + str(loteria["bmax"]) if loteria["bonus"] else "null"}, "explanations": {{"N": "narrativa experta en {lang_full} para el numero N"}}}}"""
-
+    # ════════════════════════════════════════
+    # GROQ — solo escribe narrativas
+    # ════════════════════════════════════════
+    narrativas = {}
     try:
+        datos_sel = json.dumps(seleccion, ensure_ascii=False)
+        prompt = f"""Eres un equipo de especialistas en loteria. Seed #{seed}.
+Escribe una narrativa experta en {lang_full} para cada numero de esta combinacion de {loteria['nombre']}.
+
+NUMEROS CON SU FUENTE (NO cambiar los numeros):
+{datos_sel}
+
+SUENO DEL USUARIO: "{inputs.get('sueno', 'ninguno')}"
+
+Por cada numero escribe una explicacion de 1-2 oraciones en {lang_full} segun su fuente:
+- fibonacci: menciona la posicion exacta en la secuencia y la formula F(n)+F(n+1)
+- tesla: menciona que es multiplo de 3 y el patron 3-6-9 de Tesla
+- sagrada: menciona la proporcion aurea phi y el multiplo exacto
+- primos: menciona que es primo y sus propiedades matematicas
+- numerologia: menciona la reduccion del nombre o fecha paso a paso
+- lunar: menciona el dia del ciclo lunar y su significado
+- community: menciona que fue destacado por la comunidad de jugadores
+- historico: menciona la frecuencia especifica en {loteria['nombre']} por dia o mes
+- favorito: confirma la eleccion personal del usuario
+- eventos: menciona el evento historico de esta fecha
+
+Responde SOLO este JSON (sin markdown):
+{{"narrativas": {{"N": "explicacion en {lang_full}"}} }}"""
+
         resp = groq_cl.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role":"system","content":f"Eres LuckSort. Solo JSON valido sin markdown. En {lang_full}."},
+                {"role":"system","content":f"Solo JSON valido. En {lang_full}. Escribe narrativas expertas."},
                 {"role":"user","content":prompt}
             ],
             temperature=round(random.uniform(0.65, 0.85), 2),
-            max_tokens=1200
+            max_tokens=900
         )
         raw = resp.choices[0].message.content.strip()
         if "```" in raw: raw = raw.split("```")[1].replace("json","").strip()
-        groq_res = json.loads(raw)
+        narrativas = json.loads(raw).get("narrativas", {})
+    except: pass
 
-        # Validar y completar numeros
-        nums = [n for n in groq_res.get("numbers",[]) if mn<=n<=mx and n not in excluir]
-        for f in fav:
-            if mn<=f<=mx and f not in excluir and f not in nums and len(nums)<loteria["n"]:
-                nums.insert(0, f)
-        pool = [c["n"] for c in validos if c["n"] not in nums]
-        while len(nums) < loteria["n"] and pool: nums.append(pool.pop(0))
-        pool2 = [n for n in range(mn, mx+1) if n not in nums and n not in excluir]
-        while len(nums) < loteria["n"] and pool2:
-            p = random.choice(pool2); nums.append(p); pool2.remove(p)
-        nums = list(dict.fromkeys(nums))[:loteria["n"]]
+    # ════════════════════════════════════════
+    # CONSTRUIR SOURCES — fuente de Python, narrativa de Groq
+    # ════════════════════════════════════════
+    NARRATIVA_AUTO = {
+        "fibonacci": lambda n, m: f"El {n} pertenece a la secuencia de Fibonacci. {m}",
+        "tesla": lambda n, m: f"El {n} es multiplo de 3 — alineado con el patron 3-6-9 de Tesla. {m}",
+        "sagrada": lambda n, m: f"El {n} sigue la proporcion aurea phi. {m}",
+        "primos": lambda n, m: f"El {n} es un numero primo — indivisible en la matematica pura.",
+        "numerologia": lambda n, m: f"Tu nombre o fecha se reduce numerologicamente a {n}. {m}",
+        "lunar": lambda n, m: f"La luna se encuentra en el dia {n} de su ciclo actual.",
+        "community": lambda n, m: f"El {n} fue destacado por jugadores activos en la comunidad esta semana.",
+        "historico": lambda n, m: f"El {n} lidera la frecuencia historica en {loteria['nombre']}. {m}",
+        "favorito": lambda n, m: f"El {n} es tu numero favorito — incluido por tu preferencia personal.",
+        "eventos": lambda n, m: f"El {n} esta vinculado a un evento historico de esta fecha. {m}",
+        "complement": lambda n, m: f"El {n} completa la combinacion por convergencia de datos.",
+        "fecha": lambda n, m: f"El {n} emerge de tu fecha especial. {m}",
+    }
 
-        # Validar bonus
-        bonus = None
-        if loteria["bonus"]:
-            b = groq_res.get("bonus")
-            if isinstance(b, int) and 1<=b<=loteria["bmax"]: bonus = b
-            else:
-                bc = [c["n"] for c in validos if 1<=c["n"]<=loteria["bmax"] and c["n"] not in nums]
-                bonus = bc[0] if bc else random.randint(1, loteria["bmax"])
+    sources = []
+    for s in seleccion:
+        n = s["n"]
+        fuente = s["fuente"]
+        math_txt = s["math"]
+        expl = narrativas.get(str(n), narrativas.get(n, ""))
+        if not expl:
+            fn = NARRATIVA_AUTO.get(fuente, lambda n, m: f"Numero {n} seleccionado.")
+            expl = fn(n, math_txt)
+        sources.append({"number": n, "source": fuente, "math": math_txt, "explanation": expl})
 
-        explanations = groq_res.get("explanations", {})
+    # Bonus source
+    if bonus:
+        fuente_b = next((c["fuente"] for c in validos if c["n"]==bonus and 1<=bonus<=loteria.get("bmax",99)), "historico")
+        math_b = next((c["math"] for c in validos if c["n"]==bonus), "")
+        sources.append({"number": bonus, "source": fuente_b, "math": math_b, "explanation": f"Bonus {loteria.get('bname','')} seleccionado por frecuencia."})
 
-        # ── POST-PROCESO: fuente por Python, narrativa por Groq ──
-        sources = []
-        for p in preseleccion:
-            n = p["n"]
-            fuente, math_txt = determinar_fuente(n, sets_mat, modulos)
-            expl = explanations.get(str(n), explanations.get(n, ""))
-            # Si Groq no dio narrativa, generar una automatica
-            if not expl:
-                expl = {
-                    "fibonacci": f"El {n} pertenece a la secuencia de Fibonacci — aparece de forma natural en la matematica",
-                    "tesla": f"El {n} es multiplo de 3, alineado con el patron 3-6-9 de Tesla",
-                    "sagrada": f"El {n} sigue la proporcion aurea phi — numero de la geometria sagrada",
-                    "primos": f"El {n} es primo — indivisible, unico en su posicion matematica",
-                    "numerologia": f"El {n} emerge de la reduccion numerologica de tus datos personales",
-                    "lunar": f"El {n} corresponde al dia {n} del ciclo lunar actual",
-                    "community": f"El {n} fue destacado por la comunidad de jugadores",
-                    "historico": f"El {n} lidera la frecuencia historica en {loteria['nombre']}",
-                    "favorito": f"El {n} es tu numero favorito — incluido por tu preferencia",
-                    "eventos": f"El {n} esta vinculado a eventos historicos de esta fecha",
-                }.get(fuente, f"El {n} fue seleccionado por convergencia de datos")
-            sources.append({
-                "number": n,
-                "source": fuente,
-                "math": math_txt,
-                "explanation": expl
-            })
+    h = st.session_state.get("historial",[]); h.append(nums_finales); st.session_state["historial"] = h[-5:]
+    return {"numbers": nums_finales, "bonus": bonus, "sources": sources}
 
-        # Bonus tambien
-        if bonus:
-            fuente_b, math_b = determinar_fuente(bonus, sets_mat, modulos)
-            sources.append({
-                "number": bonus,
-                "source": fuente_b,
-                "math": math_b,
-                "explanation": f"Bonus {loteria['bname']}"
-            })
 
-        h = st.session_state.get("historial",[]); h.append(nums); st.session_state["historial"] = h[-5:]
-        return {"numbers": nums, "bonus": bonus, "sources": sources}
-
-    except Exception as e:
-        # Fallback
-        top = [c for c in validos if c["n"] not in excluir][:loteria["n"]+3]
-        nums = [c["n"] for c in top[:loteria["n"]]]
-        bonus = random.randint(1, loteria["bmax"]) if loteria["bonus"] else None
-        sources = []
-        for c in top[:loteria["n"]]:
-            fuente, math_txt = determinar_fuente(c["n"], sets_mat, modulos)
-            narrativa_fallback = {
-                "fibonacci": f"El {c['n']} pertenece a la secuencia de Fibonacci — aparece de forma natural en la matematica universal",
-                "tesla": f"El {c['n']} es multiplo de 3, alineado con el patron 3-6-9 de Tesla",
-                "sagrada": f"El {c['n']} sigue la proporcion aurea phi — numero de la geometria sagrada",
-                "primos": f"El {c['n']} es primo — indivisible, unico en su posicion matematica",
-                "numerologia": f"El {c['n']} emerge de la reduccion numerologica de tus datos personales",
-                "lunar": f"El {c['n']} corresponde al dia del ciclo lunar actual",
-                "community": f"El {c['n']} fue mencionado por la comunidad de jugadores esta semana",
-                "historico": f"El {c['n']} lidera la frecuencia historica en {loteria['nombre']}",
-                "favorito": f"El {c['n']} es tu numero favorito — incluido por tu preferencia",
-                "eventos": f"El {c['n']} esta vinculado a eventos historicos de esta fecha",
-            }.get(fuente, f"El {c['n']} fue seleccionado por convergencia de datos")
-            sources.append({"number":c["n"],"source":fuente,"math":math_txt,"explanation":narrativa_fallback})
-        if bonus:
-            fuente_b, math_b = determinar_fuente(bonus, sets_mat, modulos)
-            sources.append({"number":bonus,"source":fuente_b,"math":math_b,"explanation":f"Bonus {loteria.get('bname','')} seleccionado por frecuencia"})
-        return {"numbers": nums, "bonus": bonus, "sources": sources}
-
-# ── SUPABASE ──
 def registrar(email, pw):
     try:
         if sb.table("usuarios").select("email").eq("email",email).execute().data: return False,"exists"
