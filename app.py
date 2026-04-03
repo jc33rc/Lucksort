@@ -699,9 +699,10 @@ def preparar_candidatos(loteria, inputs, modulos):
                 if mn <= v <= mx:
                     add({"n":v, "math":m, "fuente":"eventos", "peso":2})
     else:
-        # Sin módulo real → histórico como fallback garantizado
-        for i, n in enumerate(hist.get("top", [])[:8]):
-            add({"n":n, "math":f"Top #{i+1} histórico {loteria['nombre']}", "fuente":"historico", "peso":3})
+        # Sin módulo real → histórico solo si no hay math ni holistic
+        if "math" not in modulos and "holistic" not in modulos:
+            for i, n in enumerate(hist.get("top", [])[:8]):
+                add({"n":n, "math":f"Top #{i+1} histórico {loteria['nombre']}", "fuente":"historico", "peso":3})
 
     # MÓDULO HOLÍSTICO
     if "holistic" in modulos:
@@ -726,10 +727,10 @@ def preparar_candidatos(loteria, inputs, modulos):
 
     # MÓDULO MATEMÁTICO
     if "math" in modulos:
-        for f in calc_fibonacci(mn, mx): add({**f, "peso":4})
-        for t_n in calc_tesla(mn, mx)[:5]: add({**t_n, "peso":3})
-        for s in calc_sagrada(mn, mx)[:10]: add({**s, "peso":3})
-        for p in calc_primos(mn, mx)[:8]: add({**p, "peso":2})
+        for f in calc_fibonacci(mn, mx): add({**f, "peso":7})
+        for t_n in calc_tesla(mn, mx)[:5]: add({**t_n, "peso":6})
+        for s in calc_sagrada(mn, mx)[:10]: add({**s, "peso":6})
+        for p in calc_primos(mn, mx)[:8]: add({**p, "peso":6})
 
     # Deduplicar
     mejor = {}
