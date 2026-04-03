@@ -847,6 +847,7 @@ def preparar_datos(loteria, inputs, modulos):
     mn,mx = loteria["min"],loteria["max"]
     hoy = datetime.now()
     candidatos = []
+    print(f"[LUCKSORT] preparar_datos inicio — modulos={modulos} inputs_keys={list(inputs.keys())}")
     usados = set()
     for gen in st.session_state.get("historial_sesion",[])[-3:]:
         usados.update(gen)
@@ -975,6 +976,7 @@ def preparar_datos(loteria, inputs, modulos):
             for n in set(frac):
                 if mn<=n<=mx: add({"n":n,"math":f"Fractal — auto-similitud en {n}","fuente":"fractal","peso":2})
 
+    print(f"[LUCKSORT] candidatos generados: {len(candidatos)}")
     # Deduplicar — mejor peso gana
     mejor={}
     for c in candidatos:
