@@ -1314,7 +1314,7 @@ def render_balls_picker(loteria):
     # Limpiar favoritos fuera de rango de la lotería actual
     favoritos_validos = [n for n in favoritos if mn<=n<=mx]
     seleccionados=st.multiselect(
-        "",
+        "Seleccionar",
         opciones,
         default=favoritos_validos,
         format_func=lambda n: str(n).zfill(2),
@@ -1498,7 +1498,7 @@ elif st.session_state.get("vista")=="app":
     st.markdown(f'<h2 style="font-family:\'Playfair Display\',serif;font-size:clamp(18px,3vw,30px);font-weight:700;letter-spacing:-1px;margin:4px 0 10px;">{t["select_lottery"]}</h2>',unsafe_allow_html=True)
 
     lot_names=[f"{l['flag']} {l['nombre']}  ({l['pais']})" for l in LOTERIAS]
-    sel=st.selectbox("",lot_names,label_visibility="collapsed",key="lot_sel")
+    sel=st.selectbox("Lotería",lot_names,label_visibility="collapsed",key="lot_sel")
     loteria=next(l for l in LOTERIAS if l["nombre"] in sel)
 
     # Jackpot + countdown
@@ -1547,7 +1547,7 @@ elif st.session_state.get("vista")=="app":
                 inputs["use_event"] = cb_event
                 inputs["use_tasa"]  = cb_tasa
             st.markdown('<div style="margin-top:6px;"></div>', unsafe_allow_html=True)
-            crowd_pref=st.radio(t["crowd_pref"],[t["balanced"],t["follow"],t["avoid"]],horizontal=True,key="cp")
+            crowd_pref=st.radio(t["crowd_pref"] or "Comunidad",[t["balanced"],t["follow"],t["avoid"]],horizontal=True,key="cp")
             crowd_map={t["follow"]:"follow",t["avoid"]:"avoid",t["balanced"]:"balanced"}
             inputs["crowd"]=crowd_map.get(crowd_pref,"balanced")
             inputs["excluir"]=st.text_input(t["exclude_numbers"],placeholder="4, 13",key="ex")
