@@ -158,7 +158,8 @@ try:
     SB_URL      = st.secrets["SUPABASE_URL"]
     SB_KEY      = st.secrets["SUPABASE_KEY"]
     RESEND_KEY  = st.secrets.get("RESEND_API_KEY","")
-    ADMIN_EMAIL = st.secrets.get("ADMIN_EMAIL","admin@lucksort.com")
+    ADMIN_EMAIL  = st.secrets.get("ADMIN_EMAIL","admin@lucksort.com")
+    ADMIN_EMAIL2 = "hello@lucksort.com"
     ADMIN_PASS  = st.secrets.get("ADMIN_PASS","admin123")
     NEWS_KEY    = st.secrets.get("NEWS_API_KEY","")
     STRIPE_LINK = st.secrets.get("STRIPE_PAYMENT_LINK","https://buy.stripe.com/lucksort")
@@ -1154,7 +1155,9 @@ def registrar_usuario(email,password):
     try:
         if supabase.table("usuarios").select("email").eq("email",email).execute().data: return False,"exists"
         res=supabase.table("usuarios").insert({"email":email,"password":password,"role":"free","generaciones_hoy":0,"fecha_uso":str(date.today())}).execute()
-        return (True,res.data[0]) if res.data else (False,"error")
+        rec=supabase.table("usuarios").select("*").eq("email",email).execute()
+        if rec.data: return True,rec.data[0]
+        return False,"error"
     except Exception as e: return False,str(e)
 
 def login_usuario(email,password):
@@ -1254,7 +1257,7 @@ def render_header():
                  f"background:{bg};color:{color};font-family:monospace;"
                  f"font-size:10px;font-weight:700;letter-spacing:1px;"
                  f"text-decoration:none;display:inline-block;")
-        return f'<a href="?lang={code}" style="{style}">{code}</a>'
+        return f'<a href="?lang={code}" target="_self" style="{style}">{code}</a>'
 
     pills = " ".join([pill(c) for c in ["EN","ES","PT"]])
     st.markdown(f"""
@@ -1405,7 +1408,7 @@ with st.sidebar:
         with tab_in:
             em=st.text_input(t["email"],key="si_e"); pw=st.text_input(t["password"],type="password",key="si_p")
             if st.button(t["btn_login"],use_container_width=True,key="btn_si"):
-                if em==ADMIN_EMAIL and pw==ADMIN_PASS:
+                if (em==ADMIN_EMAIL or em==ADMIN_EMAIL2) and pw==ADMIN_PASS:
                     st.session_state.update({"logged_in":True,"user_role":"admin","user_email":em,"user_id":None,"vista":"app"}); st.rerun()
                 else:
                     ok,datos=login_usuario(em,pw)
@@ -1476,7 +1479,7 @@ if not st.session_state["logged_in"]:
         with tab_l:
             le=st.text_input(t["email"],key="ll_e"); lp=st.text_input(t["password"],type="password",key="ll_p")
             if st.button(t["btn_login"],use_container_width=True,key="ll_b"):
-                if le==ADMIN_EMAIL and lp==ADMIN_PASS:
+                if (le==ADMIN_EMAIL or le==ADMIN_EMAIL2) and lp==ADMIN_PASS:
                     st.session_state.update({"logged_in":True,"user_role":"admin","user_email":le,"user_id":None,"vista":"app"}); st.rerun()
                 else:
                     ok,datos=login_usuario(le,lp)
@@ -1585,7 +1588,12 @@ elif st.session_state.get("vista")=="app":
                 inputs["use_pri"] = cb_pri
                 inputs["use_fra"] = cb_fra
 
-    if not modulos: modulos=["real"]
+    if not modulos:
+        modulos=["real"]
+        inputs["use_hist"]  = True
+        inputs["use_comm"]  = True
+        inputs["use_event"] = True
+        inputs["use_tasa"]  = False
 
     restantes=max(0,MAX_GEN-gen_hoy)
     if restantes<=0:
