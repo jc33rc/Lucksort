@@ -1128,7 +1128,9 @@ Responde SOLO en {lang_full}. Devuelve SOLO JSON válido sin HTML:
         hist=st.session_state.get("historial_sesion",[])
         hist.append(res["numbers"]); st.session_state["historial_sesion"]=hist[-5:]
         return res
-    except:
+    except Exception as _e:
+        print(f"[LUCKSORT ERROR generar_combinacion] {type(_e).__name__}: {_e}")
+        import traceback; traceback.print_exc()
         return generar_fallback(loteria,excluir,ordenados)
 
 def generar_fallback(loteria,excluir=[],candidatos=[]):
