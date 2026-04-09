@@ -34,12 +34,13 @@ def traducir(texto, idioma):
     if idioma == "EN" or not texto: return texto
     try:
         target = "es" if idioma == "ES" else "pt"
-        return GoogleTranslator(source='en', target=target).translate(texto)
+        result = GoogleTranslator(source='en', target=target).translate(texto)
+        return result if result else texto
     except:
         return texto
 
 def tr(texto):
-    return traducir(texto, st.session_state["idioma"])
+    return traducir(str(texto), st.session_state["idioma"])
 
 # ══════════════════════════════════════════════════════
 # CSS
@@ -211,30 +212,47 @@ def get_lunar():
     return min(fase,28), f"Moon day {fase} of cycle"
 
 def get_derivados(mn, mx, hist_nombre):
-    """Numeros derivados aplicando matematica al historico"""
+    """Numeros derivados aplicando matematica pura al historico real"""
     r={}
     hist=HIST.get(hist_nombre,{})
-    top=hist.get("top",[])[:5]
+    top=hist.get("top",[])[:8]
     freq=hist.get("freq",{})
     phi=1.6180339887
 
     for n in top:
-        # phi multiplicado
+        freq_orig=freq.get(n,0)
+        rank=top.index(n)+1
+
+        # ϕ (phi) multiplicado — proporcion aurea
         v=round(n*phi)
         if mn<=v<=mx and v not in r and v!=n:
-            freq_orig=freq.get(n,0)
-            r[v]={"math":f"ϕ×{n}={v} — golden ratio of historical #{top.index(n)+1}",
-                  "desc":f"Derived from #{n} (appeared {freq_orig}x) × phi","fuente":"derivado"}
-        # Tesla reductor
+            r[v]={"math":f"ϕ×{n}={v} | golden ratio applied to #{rank} historical ({freq_orig}x)",
+                  "fuente":"derivado"}
+
+        # Tesla — suma de digitos
         suma=sum(int(d) for d in str(n))
         if mn<=suma<=mx and suma not in r and suma!=n:
-            r[suma]={"math":f"{n}→{'+'.join(list(str(n)))}={suma} — Tesla digit sum",
-                     "desc":f"Tesla reduction of historical #{n}","fuente":"derivado"}
-        # sqrt2
+            digitos="+".join(list(str(n)))
+            r[suma]={"math":f"{n}→{digitos}={suma} | Tesla digit reduction of #{rank} ({freq_orig}x)",
+                     "fuente":"derivado"}
+
+        # √2 — raiz cuadrada de 2
         v2=round(n*math.sqrt(2))
         if mn<=v2<=mx and v2 not in r and v2!=n:
-            r[v2]={"math":f"√2×{n}={v2} — sacred geometry",
-                   "desc":f"√2 applied to #{n}","fuente":"derivado"}
+            r[v2]={"math":f"√2×{n}={v2} | sacred √2 of #{rank} historical ({freq_orig}x)",
+                   "fuente":"derivado"}
+
+        # π — pi multiplicado
+        vpi=round(n*(math.pi/2))
+        if mn<=vpi<=mx and vpi not in r and vpi!=n:
+            r[vpi]={"math":f"π/2×{n}={vpi} | pi ratio of #{rank} historical ({freq_orig}x)",
+                    "fuente":"derivado"}
+
+        # Fibonacci inverso — divide por phi
+        vinv=round(n/phi)
+        if mn<=vinv<=mx and vinv not in r and vinv!=n:
+            r[vinv]={"math":f"{n}/ϕ={vinv} | inverse golden ratio of #{rank} ({freq_orig}x)",
+                     "fuente":"derivado"}
 
     return r
 
@@ -766,14 +784,6 @@ with st.sidebar:
 </div>""", unsafe_allow_html=True)
     st.markdown('<hr class="g">', unsafe_allow_html=True)
 
-    lang_act=st.session_state["idioma"]
-    nuevo_lang=st.selectbox("Language / Idioma",["EN","ES","PT"],
-        index=["EN","ES","PT"].index(lang_act),key="sel_idioma")
-    if nuevo_lang!=lang_act:
-        st.session_state["idioma"]=nuevo_lang; st.rerun()
-
-    st.markdown('<hr class="g">', unsafe_allow_html=True)
-
     if not st.session_state["logged_in"]:
         tab_li,tab_re=st.tabs([tr("Sign In"),tr("Create Account")])
         with tab_li:
@@ -810,12 +820,20 @@ with st.sidebar:
 # HEADER
 # ══════════════════════════════════════════════════════
 lang=st.session_state["idioma"]
-st.markdown(f"""<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(201,168,76,.08);margin-bottom:12px;">
-<div style="display:flex;align-items:center;gap:10px;">
+col_logo, col_lang = st.columns([4,1])
+with col_logo:
+    st.markdown(f"""<div style="display:flex;align-items:center;gap:10px;padding:12px 16px 8px;">
 <div style="width:34px;height:34px;background:linear-gradient(135deg,#C9A84C,#F0C84A);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#07070f;animation:glow 3s ease-in-out infinite;">◆</div>
 <div><div style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:white;line-height:1.1;">LuckSort</div>
-<div style="font-family:DM Mono,monospace;font-size:8px;color:rgba(201,168,76,.4);letter-spacing:2.5px;">SORT YOUR LUCK</div></div></div>
-<span style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.4);">{lang}</span></div>""", unsafe_allow_html=True)
+<div style="font-family:DM Mono,monospace;font-size:8px;color:rgba(201,168,76,.4);letter-spacing:2.5px;">SORT YOUR LUCK</div></div></div>""", unsafe_allow_html=True)
+with col_lang:
+    lang_act = st.session_state["idioma"]
+    nuevo_lang = st.selectbox("", ["EN","ES","PT"],
+        index=["EN","ES","PT"].index(lang_act), key="sel_lang_top",
+        label_visibility="collapsed")
+    if nuevo_lang != lang_act:
+        st.session_state["idioma"] = nuevo_lang; st.rerun()
+st.markdown('<hr class="g" style="margin-top:4px;">', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════
 # LANDING
@@ -978,11 +996,24 @@ with st.expander(f'⊛ {tr("Community")}',expanded=False):
 
 st.markdown('<hr class="g">', unsafe_allow_html=True)
 
-# MAPA DE CALOR (Pro)
+# MAPA DE CALOR INTERACTIVO (Pro)
 if role in ["pro","admin"]:
     with st.expander(f'⊞ {tr("Interactive Heat Map")} — PRO',expanded=False):
         lot_hm=st.selectbox(tr("Select lottery"),lot_names,key="hm_lot")
         lot_nombre_hm=lot_hm.split(" ",1)[1]
+        hist_hm=HIST.get(lot_nombre_hm,{})
+        years_str=hist_hm.get("years","2000-2024")
+        try:
+            yr_start=int(years_str.split("-")[0])
+            yr_end=int(years_str.split("-")[1])
+        except:
+            yr_start=2000; yr_end=2024
+        yr_sel=st.slider(
+            tr("Filter by year range"),
+            min_value=yr_start, max_value=yr_end,
+            value=(yr_start, yr_end), key="hm_slider"
+        )
+        st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.4);text-align:center;margin-bottom:8px;">{yr_sel[0]} — {yr_sel[1]} · {yr_sel[1]-yr_sel[0]+1} {tr("years of data")}</div>', unsafe_allow_html=True)
         render_heatmap(lot_nombre_hm)
 
 st.markdown('<hr class="g">', unsafe_allow_html=True)
