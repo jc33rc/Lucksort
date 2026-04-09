@@ -257,15 +257,15 @@ def get_derivados(mn, mx, hist_nombre):
     return r
 
 def contar_senales(n, fibs, teslas, sagradas, primos, hist_top, derivados):
-    """Cuenta cuantas senales apuntan a un numero"""
-    count=0
-    if n in fibs: count+=1
-    if n in teslas: count+=1
-    if n in sagradas: count+=1
-    if n in primos: count+=1
-    if n in hist_top: count+=1
-    if n in derivados: count+=1
-    return count
+    """Cuenta señales y devuelve lista de cuales convergen"""
+    senales=[]
+    if n in fibs: senales.append("Fibonacci")
+    if n in teslas: senales.append("Tesla 3·6·9")
+    if n in sagradas: senales.append("Sacred Geometry")
+    if n in primos: senales.append("Prime")
+    if n in hist_top: senales.append("Historical Top")
+    if n in derivados: senales.append("Derived")
+    return senales
 
 # ══════════════════════════════════════════════════════
 # CACHE SUPABASE
@@ -454,8 +454,14 @@ For each number write 1-2 sentences in {lang_full} based on its source:
 - favorito: user's personal choice
 - complement: completes combination by data convergence
 
+IMPORTANT: Be specific and expert. Include:
+- Exact numbers (frequency counts, positions, formulas)
+- Historical context for "historico" source
+- Mathematical formula for "fibonacci","tesla","sagrada","primos","derivado"
+- Personal connection for "numerologia","lunar","favorito"
+
 Respond ONLY this JSON (no markdown):
-{{"narrativas": {{"N": "narrative in {lang_full}"}}}}"""
+{{"narrativas": {{"N": "2 sentences max, expert, specific, in {lang_full}"}}}}"""
 
     try:
         resp=groq_cl.chat.completions.create(
@@ -514,7 +520,7 @@ def generar(loteria, inputs, modulos):
         "primos":      lambda n,m: f"Number {n} is prime — indivisible in mathematics.",
         "numerologia": lambda n,m: f"Your name or date reduces numerologically to {n}. {m}",
         "lunar":       lambda n,m: f"Moon is on day {n} of its current cycle.",
-        "historico":   lambda n,m: f"Number {n} is among the most frequent in this lottery. {m}",
+        "historico":   lambda n,m: f"Statistical analysis confirms {n} as one of the top performers. {m}",
         "derivado":    lambda n,m: f"Number {n} derived mathematically from historical data. {m}",
         "favorito":    lambda n,m: f"Number {n} is your favourite — included by your choice.",
         "complement":  lambda n,m: f"Number {n} completes the combination by data convergence.",
@@ -533,10 +539,21 @@ def generar(loteria, inputs, modulos):
             expl=tr(expl)
         # Convergencia
         senales=contar_senales(n,fibs,teslas,sagradas,primos,hist_top,derivados)
-        sources.append({"number":n,"source":fuente,"math":math_txt,"explanation":expl,"senales":senales})
+        sources.append({"number":n,"source":fuente,"math":math_txt,"explanation":expl,"senales":senales,"n_senales":len(senales)})
 
     if bonus:
-        sources.append({"number":bonus,"source":"historico","math":"","explanation":tr(f"Bonus {loteria.get('bname','')}."),"senales":0})
+        hist_bonus=HIST.get(loteria["nombre"],{})
+        freq_bonus=hist_bonus.get("freq",{})
+        freq_b=freq_bonus.get(bonus,0)
+        top_bonus=hist_bonus.get("top",[])
+        rank_b=top_bonus.index(bonus)+1 if bonus in top_bonus else None
+        if rank_b:
+            math_b=f"#{rank_b} most frequent bonus pool number — appeared {freq_b}x"
+            expl_b=tr(f"The {bonus} ranks #{rank_b} in the bonus pool historical frequency with {freq_b} appearances. A statistically strong choice for {loteria.get('bname','bonus')}.")
+        else:
+            math_b=f"Bonus pool selection — {freq_b}x historical" if freq_b else "Bonus pool selection"
+            expl_b=tr(f"Selected for the {loteria.get('bname','bonus')} pool based on historical frequency patterns.")
+        sources.append({"number":bonus,"source":"historico","math":math_b,"explanation":expl_b,"senales":[],"n_senales":0})
 
     h=st.session_state.get("historial",[]); h.append(nums); st.session_state["historial"]=h[-5:]
     return {"numbers":nums,"bonus":bonus,"sources":sources}
@@ -744,9 +761,15 @@ def render_resultado(res, loteria, modulos):
             expl=s.get("explanation","")
             num=s.get("number","")
             senales=s.get("senales",0)
-            is_conv=senales>=3 and is_pro
+            senales=s.get("senales",[])
+            n_senales_check=s.get("n_senales",len(senales) if isinstance(senales,list) else senales)
+            is_conv=n_senales_check>=3 and is_pro
             cls="src-card convergence" if is_conv else "src-card"
-            conv_badge=f'<div class="badge-conv">◆ HIGH CONVERGENCE · {senales} SIGNALS</div>' if is_conv else ""
+            n_senales=s.get("n_senales",0)
+            senales_list=s.get("senales",[])
+            senales_str=" · ".join(senales_list) if senales_list else ""
+            conv_badge=f'''<div class="badge-conv">◆ HIGH CONVERGENCE · {n_senales} SIGNALS</div>
+<div style="font-family:DM Mono,monospace;font-size:8px;color:rgba(201,168,76,.6);margin-bottom:4px;">{senales_str}</div>''' if is_conv else ""
             st.markdown(f"""<div class="{cls}">
 <div style="display:flex;align-items:flex-start;gap:12px;flex:1;">
 <span class="src-icon">{icon}</span>
