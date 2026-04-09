@@ -672,20 +672,22 @@ def render_heatmap(loteria_nombre, filtro="all", filtro_val=None):
     else:
         freq=hist.get("freq",{})
 
-    top=hist.get("top",[])
-    hot=hist.get("cal",[])
     max_freq=max(freq.values()) if freq else 1
+    # Top y hot basados en el freq filtrado actual
+    nums_ordenados=sorted(freq.keys(), key=lambda n:-freq.get(n,0))
+    top_filtrado=nums_ordenados[:5]
+    top_filtrado2=nums_ordenados[:10]
 
     cells=""
     for n in range(mn,mx+1):
         f=freq.get(n,0)
         ratio=f/max_freq if max_freq>0 else 0
-        if n in hot[:3] and n in top[:5]:   heat=5
-        elif n in hot:                        heat=4
-        elif n in top[:5]:                    heat=3
-        elif n in top:                        heat=2
-        elif ratio>0.5:                       heat=1
-        else:                                 heat=0
+        if n in top_filtrado[:2]:  heat=5
+        elif n in top_filtrado:    heat=4
+        elif n in top_filtrado2:   heat=3
+        elif ratio>0.4:            heat=2
+        elif ratio>0.1:            heat=1
+        else:                      heat=0
 
         colors_map={
             0:"rgba(255,255,255,.04)",
