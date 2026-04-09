@@ -309,28 +309,39 @@ def construir_pools(loteria, inputs, modulos):
         if mn<=n<=mx:
             pools["favorito"].append({"n":n,"fuente":"favorito","math":"Your favourite number"})
 
-    # MATEMATICO
+    # MATEMATICO — respetar checkboxes individuales
     if "math" in modulos:
-        fibs=get_fibonacci(mn,mx)
-        for n,d in fibs.items():
-            pools["fibonacci"].append({"n":n,"fuente":"fibonacci","math":d})
+        use_fib = inputs.get("use_fib", True)
+        use_tes = inputs.get("use_tes", True)
+        use_sag = inputs.get("use_sag", True)
+        use_pri = inputs.get("use_pri", True)
+        use_der = inputs.get("use_der", True)
 
-        teslas=get_tesla(mn,mx)
-        for n,d in teslas.items():
-            pools["tesla"].append({"n":n,"fuente":"tesla","math":d})
+        if use_fib:
+            fibs=get_fibonacci(mn,mx)
+            for n,d in fibs.items():
+                pools["fibonacci"].append({"n":n,"fuente":"fibonacci","math":d})
 
-        sagradas=get_sagrada(mn,mx)
-        for n,d in sagradas.items():
-            pools["sagrada"].append({"n":n,"fuente":"sagrada","math":d})
+        if use_tes:
+            teslas=get_tesla(mn,mx)
+            for n,d in teslas.items():
+                pools["tesla"].append({"n":n,"fuente":"tesla","math":d})
 
-        primos=get_primos(mn,mx)
-        for n,d in primos.items():
-            pools["primos"].append({"n":n,"fuente":"primos","math":d})
+        if use_sag:
+            sagradas=get_sagrada(mn,mx)
+            for n,d in sagradas.items():
+                pools["sagrada"].append({"n":n,"fuente":"sagrada","math":d})
 
-        # Derivados del historico
-        derivados=get_derivados(mn,mx,loteria["nombre"])
-        for n,d in derivados.items():
-            pools["derivado"].append({"n":n,"fuente":"derivado","math":d["math"]})
+        if use_pri:
+            primos=get_primos(mn,mx)
+            for n,d in primos.items():
+                pools["primos"].append({"n":n,"fuente":"primos","math":d})
+
+        if use_der:
+            derivados=get_derivados(mn,mx,loteria["nombre"])
+            for n,d in derivados.items():
+                pools["derivado"].append({"n":n,"fuente":"derivado","math":d["math"]})
+            random.shuffle(pools["derivado"])
 
     # HOLISTICO
     if "holistic" in modulos:
@@ -639,12 +650,28 @@ def generar_pdf(res, loteria):
 # ══════════════════════════════════════════════════════
 # MAPA DE CALOR
 # ══════════════════════════════════════════════════════
-def render_heatmap(loteria_nombre):
+def render_heatmap(loteria_nombre, filtro="all", filtro_val=None):
     hist=HIST.get(loteria_nombre,{})
     lot=next((l for l in LOTERIAS if l["nombre"]==loteria_nombre),None)
     if not lot: return
     mn,mx=lot["min"],lot["max"]
-    freq=hist.get("freq",{})
+
+    # Seleccionar datos segun filtro
+    if filtro=="mes" and filtro_val:
+        nums_filtro = hist.get("mes",{}).get(filtro_val,[])
+        freq = {n: (100-i*8) for i,n in enumerate(nums_filtro)}
+    elif filtro=="dia" and filtro_val:
+        nums_filtro = hist.get("dia",{}).get(filtro_val,[])
+        freq = {n: (100-i*10) for i,n in enumerate(nums_filtro)}
+    elif filtro=="cal":
+        nums_filtro = hist.get("cal",[])
+        freq = {n: (100-i*12) for i,n in enumerate(nums_filtro)}
+    elif filtro=="fri":
+        nums_filtro = hist.get("fri",[])
+        freq = {n: (100-i*12) for i,n in enumerate(nums_filtro)}
+    else:
+        freq=hist.get("freq",{})
+
     top=hist.get("top",[])
     hot=hist.get("cal",[])
     max_freq=max(freq.values()) if freq else 1
@@ -1025,19 +1052,29 @@ if role in ["pro","admin"]:
         lot_hm=st.selectbox(tr("Select lottery"),lot_names,key="hm_lot")
         lot_nombre_hm=lot_hm.split(" ",1)[1]
         hist_hm=HIST.get(lot_nombre_hm,{})
-        years_str=hist_hm.get("years","2000-2024")
-        try:
-            yr_start=int(years_str.split("-")[0])
-            yr_end=int(years_str.split("-")[1])
-        except:
-            yr_start=2000; yr_end=2024
-        yr_sel=st.slider(
-            tr("Filter by year range"),
-            min_value=yr_start, max_value=yr_end,
-            value=(yr_start, yr_end), key="hm_slider"
-        )
-        st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.4);text-align:center;margin-bottom:8px;">{yr_sel[0]} — {yr_sel[1]} · {yr_sel[1]-yr_sel[0]+1} {tr("years of data")}</div>', unsafe_allow_html=True)
-        render_heatmap(lot_nombre_hm)
+
+        # Tipo de filtro
+        filtro_tipo=st.radio(tr("Filter by"),
+            [tr("All time"),tr("Month"),tr("Day of week"),tr("Hot numbers"),tr("Cold numbers")],
+            horizontal=True, key="hm_filtro")
+
+        filtro="all"; filtro_val=None
+        if filtro_tipo==tr("Month"):
+            meses={"January":1,"February":2,"March":3,"April":4,"May":5,"June":6,
+                   "July":7,"August":8,"September":9,"October":10,"November":11,"December":12}
+            mes_sel=st.select_slider(tr("Select month"),options=list(meses.keys()),key="hm_mes")
+            filtro="mes"; filtro_val=meses[mes_sel]
+        elif filtro_tipo==tr("Day of week"):
+            dias_hm={"Monday":"Mon","Tuesday":"Tue","Wednesday":"Wed",
+                     "Thursday":"Thu","Friday":"Fri","Saturday":"Sat","Sunday":"Sun"}
+            dia_sel=st.select_slider(tr("Select day"),options=list(dias_hm.keys()),key="hm_dia")
+            filtro="dia"; filtro_val=dias_hm[dia_sel]
+        elif filtro_tipo==tr("Hot numbers"):
+            filtro="cal"
+        elif filtro_tipo==tr("Cold numbers"):
+            filtro="fri"
+
+        render_heatmap(lot_nombre_hm, filtro, filtro_val)
 
 st.markdown('<hr class="g">', unsafe_allow_html=True)
 
