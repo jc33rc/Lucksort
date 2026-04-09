@@ -704,7 +704,8 @@ def render_heatmap(loteria_nombre, filtro="all", filtro_val=None):
         cells+=f'<div title="{n} — {f}x" style="aspect-ratio:1;border-radius:5px;background:{bg};display:flex;align-items:center;justify-content:center;font-family:DM Mono,monospace;font-size:9px;font-weight:700;color:{text_color};cursor:pointer;transition:transform .15s;{shadow}{anim}">{str(n).zfill(2)}</div>'
 
     sorteos=hist.get("sorteos",0); years=hist.get("years","")
-    top_num=top[0] if top else 0; top_freq=freq.get(top_num,0)
+    top_num=nums_ordenados[0] if nums_ordenados else 0
+    top_freq=freq.get(top_num,0)
 
     st.markdown(f"""<div style="background:rgba(255,255,255,.02);border:1px solid rgba(201,168,76,.12);border-radius:16px;padding:16px;">
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
