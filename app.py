@@ -360,24 +360,66 @@ def construir_pools(loteria, inputs, modulos):
     # HISTORICO (siempre disponible)
     if "real" in modulos or not any(m in modulos for m in ["math","holistic"]):
         top=hist.get("top",[])
+        dia_nombres={"Mon":"Mondays","Tue":"Tuesdays","Wed":"Wednesdays",
+                     "Thu":"Thursdays","Fri":"Fridays","Sat":"Saturdays","Sun":"Sundays"}
+        mes_nombres={1:"January",2:"February",3:"March",4:"April",5:"May",6:"June",
+                     7:"July",8:"August",9:"September",10:"October",11:"November",12:"December"}
+        dia_nombre=dia_nombres.get(dia_str,dia_str)
+        mes_nombre=mes_nombres.get(mes,str(mes))
+
+        # Top con contexto dia+mes combinado
+        top_dia=hist.get("dia",{}).get(dia_str,[])
+        top_mes=hist.get("mes",{}).get(mes,[])
+
         for i,n in enumerate(top[:10]):
             f=freq.get(n,0)
-            pools["historico"].append({"n":n,"fuente":"historico",
-                "math":f"#{i+1} most frequent in {loteria['nombre']} — appeared {f}x (2015-2024)"})
-        for n in hist.get("dia",{}).get(dia_str,[])[:3]:
+            # Ver si tambien domina el dia o mes actual
+            en_dia = n in top_dia[:3]
+            en_mes = n in top_mes[:3]
+            en_cal = n in hist.get("cal",[])
+
+            if en_dia and en_mes:
+                math=f"#{i+1} all-time in {loteria['nombre']} ({f}x) — also dominates {dia_nombre} of {mes_nombre}"
+            elif en_dia:
+                math=f"#{i+1} all-time ({f}x) — particularly strong on {dia_nombre} in {loteria['nombre']}"
+            elif en_mes:
+                math=f"#{i+1} all-time ({f}x) — leads {mes_nombre} draws in {loteria['nombre']}"
+            elif en_cal:
+                math=f"#{i+1} all-time ({f}x) — currently hot, drew recently in {loteria['nombre']}"
+            else:
+                math=f"#{i+1} most frequent in {loteria['nombre']} history — {f}x since 2015"
+
+            pools["historico"].append({"n":n,"fuente":"historico","math":math})
+
+        # Numeros especiales de este dia
+        for n in top_dia[:3]:
             if not any(c["n"]==n for c in pools["historico"]):
                 f=freq.get(n,0)
-                pools["historico"].append({"n":n,"fuente":"historico",
-                    "math":f"Dominates {dia_str} draws in {loteria['nombre']} — {f}x historically"})
-        for n in hist.get("mes",{}).get(mes,[])[:3]:
+                en_mes = n in top_mes[:3]
+                if en_mes:
+                    math=f"Dominates {dia_nombre} of {mes_nombre} in {loteria['nombre']} — double pattern confirmed"
+                else:
+                    math=f"Most frequent on {dia_nombre} in {loteria['nombre']} — {f}x historically"
+                pools["historico"].append({"n":n,"fuente":"historico","math":math})
+
+        # Numeros especiales de este mes
+        for n in top_mes[:3]:
             if not any(c["n"]==n for c in pools["historico"]):
                 f=freq.get(n,0)
-                pools["historico"].append({"n":n,"fuente":"historico",
-                    "math":f"Month {mes} leader in {loteria['nombre']} — {f}x historically"})
+                math=f"{mes_nombre} leader in {loteria['nombre']} — {f}x in this month historically"
+                pools["historico"].append({"n":n,"fuente":"historico","math":math})
+
+        # Calientes
         for n in hist.get("cal",[])[:3]:
             if not any(c["n"]==n for c in pools["historico"]):
-                pools["historico"].append({"n":n,"fuente":"historico",
-                    "math":f"Hot number — appeared in one of the last 3 draws"})
+                math=f"Hot — drew recently in {loteria['nombre']}, statistically due again"
+                pools["historico"].append({"n":n,"fuente":"historico","math":math})
+
+        # Frios
+        for n in hist.get("fri",[])[:2]:
+            if not any(c["n"]==n for c in pools["historico"]):
+                math=f"Cold — not seen in weeks in {loteria['nombre']}, statistically overdue"
+                pools["historico"].append({"n":n,"fuente":"historico","math":math})
 
     return pools
 
@@ -460,7 +502,7 @@ For each number write 1-2 sentences in {lang_full} based on its source:
 - primos: prime number properties
 - numerologia: step by step reduction of name/date
 - lunar: lunar cycle day and significance
-- historico: specific frequency in draws, day or month patterns
+- historico: use the exact math description provided — mention the specific day, month, frequency count and pattern. Example: "On Saturdays of April, 26 has appeared X times in Powerball — the strongest pattern for this day-month combination"
 - derivado: mathematical derivation from historical data
 - favorito: user's personal choice
 - complement: completes combination by data convergence
