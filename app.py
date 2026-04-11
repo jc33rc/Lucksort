@@ -119,7 +119,7 @@ LOTERIAS = [
     {"id":5,"nombre":"El Gordo",     "flag":"🇪🇸","min":1,"max":54,"n":5,"bonus":True, "bmax":10,"bname":"Reintegro","dias":["Sun"],             "hora":"21:25 CET"},
     {"id":6,"nombre":"Mega-Sena",    "flag":"🇧🇷","min":1,"max":60,"n":6,"bonus":False,"bmax":None,"bname":None,     "dias":["Wed","Sat"],       "hora":"20:00 BRT"},
     {"id":7,"nombre":"Lotofacil",    "flag":"🇧🇷","min":1,"max":25,"n":15,"bonus":False,"bmax":None,"bname":None,    "dias":["Mon-Sat"],         "hora":"20:00 BRT"},
-    {"id":8,"nombre":"Baloto",       "flag":"🇨🇴","min":1,"max":43,"n":6,"bonus":True, "bmax":16,"bname":"Balota",   "dias":["Wed","Sat"],       "hora":"22:00 COT"},
+    {"id":8,"nombre":"Baloto",       "flag":"🇨🇴","min":1,"max":43,"n":5,"bonus":True, "bmax":16,"bname":"Balota",   "dias":["Wed","Sat"],       "hora":"22:00 COT"},
     {"id":9,"nombre":"La Primitiva", "flag":"🇪🇸","min":1,"max":49,"n":6,"bonus":False,"bmax":None,"bname":None,     "dias":["Thu","Sat"],       "hora":"21:30 CET"},
     {"id":10,"nombre":"EuroJackpot", "flag":"🇪🇺","min":1,"max":50,"n":5,"bonus":True, "bmax":12,"bname":"Euro Num", "dias":["Tue","Fri"],       "hora":"21:00 CET"},
     {"id":11,"nombre":"Canada Lotto","flag":"🇨🇦","min":1,"max":49,"n":6,"bonus":True, "bmax":49,"bname":"Bonus",    "dias":["Wed","Sat"],       "hora":"22:30 ET"},
