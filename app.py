@@ -1237,18 +1237,13 @@ loteria=LOTERIAS[sel_idx]; mn,mx=loteria["min"],loteria["max"]
 
 # ── COUNTDOWN REAL AL PRÓXIMO SORTEO ──
 def get_next_draw(loteria):
-    from datetime import datetime, timedelta
-    import pytz
-    tz_map = {
-        "ET": "America/New_York", "CET": "Europe/Paris",
-        "GMT": "Europe/London", "BRT": "America/Sao_Paulo",
-        "COT": "America/Bogota"
-    }
+    from datetime import datetime, timedelta, timezone
+    tz_offset = {"ET":-4,"CET":2,"GMT":1,"BRT":-3,"COT":-5}
     dia_map = {"Mon":0,"Tue":1,"Wed":2,"Thu":3,"Fri":4,"Sat":5,"Sun":6}
     hora_str = loteria["hora"]
     parts = hora_str.split()
     time_part = parts[0]; tz_code = parts[1] if len(parts)>1 else "ET"
-    tz = pytz.timezone(tz_map.get(tz_code, "America/New_York"))
+    tz = timezone(timedelta(hours=tz_offset.get(tz_code,-4)))
     now = datetime.now(tz)
     h, m = map(int, time_part.split(":"))
     dias_raw = loteria["dias"]
