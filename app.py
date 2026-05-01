@@ -638,7 +638,7 @@ def generar(loteria, inputs, modulos):
             # Mezclar estadístico con otros módulos (50/50)
             import random as _r
             n_stat=max(1,loteria["n"]//2)
-            stat_pool=[{"n":x,"fuente":"statistical","peso":0.9} for x in nums_stat[:n_stat] if x not in excluir]
+            stat_pool=[{"n":x,"fuente":"statistical","peso":0.9,"math":"Statistical engine — gap analysis + frequency"} for x in nums_stat[:n_stat] if x not in excluir]
             elegidos_base=[e for e in elegidos if e["n"] not in [s["n"] for s in stat_pool]]
             elegidos=(stat_pool+elegidos_base)[:loteria["n"]]
             if bonus_stat and loteria["bonus"]: 
@@ -694,7 +694,7 @@ def generar(loteria, inputs, modulos):
 
     sources=[]
     for e in elegidos:
-        n=e["n"]; fuente=e["fuente"]; math_txt=e["math"]
+        n=e["n"]; fuente=e["fuente"]; math_txt=e.get("math","")
         expl=narrativas.get(str(n),narrativas.get(n,""))
         if not expl:
             fn=AUTO.get(fuente,lambda n,m:f"Number {n} selected.")
