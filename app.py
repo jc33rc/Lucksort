@@ -957,6 +957,64 @@ def db_login(email, pw):
 # ══════════════════════════════════════════════════════
 # RENDER RESULTADO
 # ══════════════════════════════════════════════════════
+
+# ── POSTAL COMPARTIBLE ESTILO BOLETO ──
+def render_postal(res, loteria):
+    from datetime import datetime
+    nums = res.get("numeros", [])
+    bonus = res.get("bonus")
+    nombre = loteria["nombre"]
+    flag = loteria["flag"]
+    bname = loteria.get("bname","")
+    fecha = datetime.now().strftime("%b %d, %Y")
+    modulos_usados = res.get("modulos", [])
+
+    # Detectar módulo principal
+    if "statistical" in modulos_usados:
+        badge = "STATISTICAL ENGINE"; badge_color = "#4CAF9A"
+    elif "math" in modulos_usados:
+        badge = "MATHEMATICAL"; badge_color = "#7B9FCC"
+    elif "holistic" in modulos_usados:
+        badge = "HOLISTIC"; badge_color = "#9B8FCC"
+    else:
+        badge = "REAL DATA"; badge_color = "#C9A84C"
+
+    balls_html = "".join([
+        f'<div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.15),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-family:DM Mono,monospace;font-size:14px;font-weight:700;color:#e8e4d9;margin:3px;">{str(n).zfill(2)}</div>'
+        for n in nums
+    ])
+    bonus_html = f'<div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#F5D878,#B8922A);display:inline-flex;align-items:center;justify-content:center;font-family:DM Mono,monospace;font-size:14px;font-weight:700;color:#07070f;margin:3px;box-shadow:0 0 16px rgba(201,168,76,.5);">{str(bonus).zfill(2)}</div>' if bonus else ""
+
+    postal_html = f"""
+    <div id="lucksort-postal" style="background:linear-gradient(135deg,#07070f 0%,#0d0d1a 100%);border:1px solid rgba(201,168,76,.3);border-radius:20px;padding:24px 20px;max-width:420px;margin:16px auto;box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px rgba(201,168,76,.08);position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#C9A84C,#F5D878,#C9A84C);"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+            <div>
+                <div style="font-family:DM Mono,monospace;font-size:18px;font-weight:700;color:#C9A84C;letter-spacing:-0.5px;">LUCK<span style="color:#e8e4d9;">SORT</span></div>
+                <div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.3);letter-spacing:2px;margin-top:2px;">lucksort.com</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:22px;">{flag}</div>
+                <div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.5);margin-top:2px;">{nombre}</div>
+            </div>
+        </div>
+        <div style="border-top:1px dashed rgba(201,168,76,.2);border-bottom:1px dashed rgba(201,168,76,.2);padding:16px 0;text-align:center;margin-bottom:14px;">
+            <div style="margin-bottom:8px;">{balls_html}{bonus_html}</div>
+            {"" if not bonus else f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.5);margin-top:4px;">{bname}</div>'}
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:3px 8px;">
+                <span style="font-family:DM Mono,monospace;font-size:9px;color:{badge_color};letter-spacing:1px;">{badge}</span>
+            </div>
+            <div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.3);">{fecha}</div>
+        </div>
+    </div>
+    """
+
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.5);letter-spacing:1px;text-align:center;margin-top:20px;">{tr("YOUR LUCKY TICKET")}</div>', unsafe_allow_html=True)
+    st.markdown(postal_html, unsafe_allow_html=True)
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-top:4px;">{tr("Screenshot & share · #LuckSort")}</div>', unsafe_allow_html=True)
+
 def render_resultado(res, loteria, modulos):
     nums=res.get("numbers",[]); bonus=res.get("bonus"); sources=res.get("sources",[])
     role=st.session_state.get("user_role","free")
@@ -1177,7 +1235,64 @@ sel_idx=st.selectbox(tr("Select your lottery"),range(len(lot_names)),
     format_func=lambda i:lot_names[i],key="sel_lot")
 loteria=LOTERIAS[sel_idx]; mn,mx=loteria["min"],loteria["max"]
 
-st.markdown(f'<div style="display:inline-block;padding:5px 12px;border-radius:20px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.12);font-family:DM Mono,monospace;font-size:11px;color:rgba(201,168,76,.6);margin-bottom:12px;">⊙ {tr("Next draw")}: {" · ".join(loteria["dias"])} · {loteria["hora"]}</div>', unsafe_allow_html=True)
+# ── COUNTDOWN REAL AL PRÓXIMO SORTEO ──
+def get_next_draw(loteria):
+    from datetime import datetime, timedelta
+    import pytz
+    tz_map = {
+        "ET": "America/New_York", "CET": "Europe/Paris",
+        "GMT": "Europe/London", "BRT": "America/Sao_Paulo",
+        "COT": "America/Bogota"
+    }
+    dia_map = {"Mon":0,"Tue":1,"Wed":2,"Thu":3,"Fri":4,"Sat":5,"Sun":6}
+    hora_str = loteria["hora"]
+    parts = hora_str.split()
+    time_part = parts[0]; tz_code = parts[1] if len(parts)>1 else "ET"
+    tz = pytz.timezone(tz_map.get(tz_code, "America/New_York"))
+    now = datetime.now(tz)
+    h, m = map(int, time_part.split(":"))
+    dias_raw = loteria["dias"]
+    dias_nums = []
+    for d in dias_raw:
+        if "-" in d:
+            # Ej: Mon-Sat
+            parts2 = d.split("-")
+            s = dia_map.get(parts2[0],0); e = dia_map.get(parts2[1],5)
+            dias_nums += list(range(s, e+1))
+        else:
+            if d in dia_map: dias_nums.append(dia_map[d])
+    if not dias_nums: dias_nums = [0,3,5]
+    best = None
+    for offset in range(8):
+        candidate = now + timedelta(days=offset)
+        if candidate.weekday() in dias_nums:
+            draw_dt = candidate.replace(hour=h, minute=m, second=0, microsecond=0)
+            if draw_dt > now:
+                best = draw_dt; break
+    if not best:
+        best = now + timedelta(days=3)
+    diff = best - now
+    total_s = int(diff.total_seconds())
+    dd = total_s // 86400; hh = (total_s % 86400) // 3600; mm = (total_s % 3600) // 60
+    return dd, hh, mm, best
+
+_cd = get_next_draw(loteria)
+_dd, _hh, _mm, _next_dt = _cd
+if _dd == 0 and _hh == 0:
+    _cd_txt = f"{_mm}m"
+elif _dd == 0:
+    _cd_txt = f"{_hh}h {_mm}m"
+else:
+    _cd_txt = f"{_dd}d {_hh}h {_mm}m"
+
+st.markdown(f'''<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+    <div style="padding:5px 12px;border-radius:20px;background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.12);font-family:DM Mono,monospace;font-size:11px;color:rgba(201,168,76,.6);">
+        ⊙ {tr("Next draw")}: {" · ".join(loteria["dias"])} · {loteria["hora"]}
+    </div>
+    <div style="padding:5px 14px;border-radius:20px;background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.35);font-family:DM Mono,monospace;font-size:12px;color:#C9A84C;font-weight:700;">
+        ⏱ {_cd_txt}
+    </div>
+</div>''', unsafe_allow_html=True)
 
 if role=="free":
     dots="".join([f'<span style="width:8px;height:8px;border-radius:50%;background:{"#C9A84C" if i<gen_hoy else "rgba(255,255,255,.08)"};display:inline-block;margin:0 2px;"></span>' for i in range(MAX_GEN)])
@@ -1392,3 +1507,7 @@ else:
 if st.session_state.get("resultado") and st.session_state.get("loteria_id"):
     lot_res=next((l for l in LOTERIAS if l["id"]==st.session_state["loteria_id"]),loteria)
     render_resultado(st.session_state["resultado"],lot_res,st.session_state.get("modulos_usados",[]))
+    # Postal compartible
+    res_postal = st.session_state["resultado"].copy()
+    res_postal["modulos"] = st.session_state.get("modulos_usados",[])
+    render_postal(res_postal, lot_res)
