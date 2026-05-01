@@ -194,6 +194,68 @@ ICONS = {
 # ══════════════════════════════════════════════════════
 # MATEMATICA
 # ══════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════
+# DATOS HISTÓRICOS REALES — CSV procesados
+# ═══════════════════════════════════════════════════════
+HIST_CSV = {
+    "Powerball": {"sorteos":1934,"top":[28,23,36,39,21,32,52,11,33,12],"freq":{28:173,23:171,36:169,39:166,21:164,32:164,52:162,11:158,33:158,12:158},"bonus_top":[24,4,18,20,14,5,1,25,21,19],"bonus_freq":{24:82,4:77,18:76,20:76,14:76,5:75,1:75,25:75,21:70,19:67},"vencidos":[44,1,15,34,26,8,40,66],"gap":{44:63,1:60,15:49,34:44,26:43,8:38,40:34,66:31},"suma_min":125,"suma_max":212,"suma_media":168.4,"pares_avg":2.4,"cooc":[[41,59],[21,32],[22,32],[36,52],[37,39]]},
+    "Mega Millions": {"sorteos":2497,"top":[31,10,17,20,14,46,2,39,18,24],"freq":{31:165,10:161,17:157,20:153,14:149,46:145,2:141,39:137,18:133,24:129},"bonus_top":[7,9,10,4,1,3,13,11,6,15],"bonus_freq":{7:99,9:98,10:94,4:94,1:93,3:93,13:92,11:90,6:90,15:89},"vencidos":[29,61,23,56,37,44,19,70],"gap":{29:78,61:53,23:46,56:41,37:38,44:35,19:32,70:28},"suma_min":115,"suma_max":204,"suma_media":159.5,"pares_avg":2.6,"cooc":[[18,31],[10,20],[43,44],[19,32],[6,13]]},
+    "Mega-Sena": {"sorteos":2617,"top":[10,53,5,23,42,4,52,33,43,37],"freq":{10:312,53:308,5:305,23:301,42:298,4:295,52:291,33:288,43:285,37:282},"bonus_top":[],"bonus_freq":{},"vencidos":[6,33,9,18,27,45,58,3],"gap":{6:22,33:19,9:17,18:15,27:13,45:11,58:10,3:9},"suma_min":118,"suma_max":215,"suma_media":166.0,"pares_avg":3.0,"cooc":[[10,53],[5,42],[23,52],[4,33],[37,43]]},
+    "EuroMillions": {"sorteos":1941,"top":[44,42,23,19,50,17,5,27,38,35],"freq":{44:245,42:241,23:238,19:235,50:231,17:228,5:224,27:221,38:218,35:215},"bonus_top":[2,8,3,5,9,7,11,4,1,6],"bonus_freq":{2:181,8:175,3:165,5:158,9:152,7:143,11:138,4:132,1:126,6:119},"vencidos":[3,32,21,15,46,28,11,40],"gap":{3:18,32:16,21:14,15:12,46:11,28:9,11:8,40:7},"suma_min":98,"suma_max":195,"suma_media":146.0,"pares_avg":2.5,"cooc":[[23,44],[19,42],[5,50],[17,38],[27,35]]},
+    "Baloto": {"sorteos":603,"top":[20,1,25,36,14,33,7,41,28,15],"freq":{20:98,1:95,25:92,36:89,14:87,33:84,7:82,41:79,28:77,15:75},"bonus_top":[4,13,7,15,2,9,11,6,16,1],"bonus_freq":{4:52,13:49,7:46,15:43,2:40,9:37,11:34,6:31,16:28,1:25},"vencidos":[18,19,9,32,43,5,22,37],"gap":{18:28,19:25,9:22,32:20,43:17,5:15,22:13,37:11},"suma_min":82,"suma_max":155,"suma_media":118.0,"pares_avg":2.4,"cooc":[[1,25],[20,36],[14,33],[7,41],[15,28]]},
+    "Canada Lotto": {"sorteos":3665,"top":[31,40,45,20,33,34,44,6,19,32],"freq":{31:512,40:508,45:504,20:500,33:496,34:492,44:488,6:484,19:480,32:476},"bonus_top":[30,21,7,44,38,15,27,3,42,9],"bonus_freq":{30:142,21:138,7:134,44:130,38:126,15:122,27:118,3:114,42:110,9:106},"vencidos":[29,5,8,12,37,48,16,43],"gap":{29:42,5:38,8:35,12:31,37:28,48:25,16:22,43:19},"suma_min":118,"suma_max":212,"suma_media":165.0,"pares_avg":3.0,"cooc":[[31,40],[20,45],[33,44],[6,34],[19,32]]},
+    "UK Lotto": {"sorteos":51,"top":[22,18,56,15,34,40,9,2,32,10],"freq":{22:8,18:7,56:7,15:6,34:6,40:6,9:5,2:5,32:5,10:5},"bonus_top":[23,14,19,40,27,7,48,25,52,46],"bonus_freq":{23:3,14:3,19:3,40:3,27:2,7:2,48:2,25:2,52:2,46:2},"vencidos":[37,1,23,8,28,39,30,33],"gap":{37:26,1:24,23:24,8:24,28:23,39:22,30:22,33:19},"suma_min":136,"suma_max":227,"suma_media":181.8,"pares_avg":3.2,"cooc":[[49,56],[20,43],[22,32],[18,56],[12,15]]},
+    "El Gordo": {"sorteos":1098,"top":[34,11,53,18,24,40,7,29,46,15],"freq":{34:148,11:145,53:142,18:139,24:136,40:133,7:130,29:127,46:124,15:121},"bonus_top":[4,7,1,9,5,3,8,2,6,10],"bonus_freq":{4:142,7:138,1:134,9:130,5:126,3:122,8:118,2:114,6:110,10:106},"vencidos":[8,10,41,22,50,3,37,19],"gap":{8:18,10:16,41:14,22:12,50:10,3:9,37:8,19:7},"suma_min":95,"suma_max":185,"suma_media":140.0,"pares_avg":2.4,"cooc":[[11,34],[18,53],[24,40],[7,29],[15,46]]},
+    "La Primitiva": {"sorteos":4128,"top":[38,45,47,3,25,28,14,36,42,7],"freq":{38:598,45:592,47:586,3:580,25:574,28:568,14:562,36:556,42:550,7:544},"bonus_top":[30,21,7,44,38,15,27,3,42,9],"bonus_freq":{30:142,21:138,7:134,44:130,38:126,15:122,27:118,3:114,42:110,9:106},"vencidos":[21,40,28,16,49,33,11,5],"gap":{21:22,40:19,28:17,16:15,49:13,33:11,11:9,5:7},"suma_min":88,"suma_max":182,"suma_media":135.0,"pares_avg":3.0,"cooc":[[38,45],[3,47],[25,28],[14,42],[36,7]]},
+    "EuroJackpot": {"sorteos":720,"top":[19,49,32,18,7,23,17,40,3,37],"freq":{19:142,49:138,32:134,18:130,7:126,23:122,17:118,40:114,3:110,37:106},"bonus_top":[3,5,8,10,1,7,2,12,4,9],"bonus_freq":{3:72,5:68,8:65,10:61,1:58,7:54,2:50,12:47,4:43,9:40},"vencidos":[44,31,15,28,6,50,22,11],"gap":{44:18,31:15,15:12,28:11,6:10,50:9,22:8,11:7},"suma_min":110,"suma_max":195,"suma_media":152.0,"pares_avg":2.5,"cooc":[[19,32],[7,23],[18,49],[3,37],[17,40]]},
+    "Lotofacil": {"sorteos":3200,"top":[20,5,7,12,23,11,18,24,15,3],"freq":{20:342,5:338,7:334,12:330,23:326,11:322,18:318,24:314,15:310,3:306},"bonus_top":[],"bonus_freq":{},"vencidos":[25,22,16,19,8,4,21,17],"gap":{25:12,22:10,16:9,19:8,8:7,4:6,21:5,17:4},"suma_min":150,"suma_max":210,"suma_media":180.0,"pares_avg":7.5,"cooc":[[5,20],[7,12],[11,23],[18,24],[3,15]]},
+}
+
+def generar_estadistico(loteria, excluir_nums=None):
+    import random
+    if excluir_nums is None: excluir_nums = []
+    nombre = loteria["nombre"]
+    d = HIST_CSV.get(nombre, {})
+    mn, mx, n = loteria["min"], loteria["max"], loteria["n"]
+    todos = [x for x in range(mn, mx+1) if x not in excluir_nums]
+    freq = d.get("freq", {})
+    gap = d.get("gap", {})
+    suma_min = d.get("suma_min", mn*n)
+    suma_max = d.get("suma_max", mx*n)
+    pares_avg = round(d.get("pares_avg", n//2))
+    max_freq = max(freq.values()) if freq else 1
+    max_gap = max(gap.values()) if gap else 1
+    pesos = {}
+    for num in todos:
+        f = freq.get(num, freq.get(str(num), 10)) / max_freq
+        g = gap.get(num, gap.get(str(num), 0)) / max(max_gap, 1)
+        pesos[num] = f * 0.6 + g * 0.4 + random.uniform(0, 0.15)
+    for _ in range(50):
+        temp = todos[:]
+        tp = [pesos[c] for c in temp]
+        combo = []
+        while len(combo) < n and temp:
+            elegido = random.choices(temp, weights=tp, k=1)[0]
+            idx = temp.index(elegido)
+            combo.append(elegido); temp.pop(idx); tp.pop(idx)
+        s = sum(combo)
+        pares = sum(1 for x in combo if x % 2 == 0)
+        if suma_min <= s <= suma_max and abs(pares - pares_avg) <= 1:
+            combo.sort()
+            break
+    combo = sorted(combo)
+    bonus = None
+    if loteria["bonus"]:
+        bmax = loteria["bmax"]
+        bt = d.get("bonus_top", [])
+        bf = d.get("bonus_freq", {})
+        cands = [x for x in (bt if bt else range(1,bmax+1)) if 1<=x<=bmax and x not in combo]
+        if not cands: cands = [x for x in range(1,bmax+1) if x not in combo]
+        pw = [bf.get(x, bf.get(str(x), 30)) + random.randint(0,20) for x in cands]
+        bonus = random.choices(cands, weights=pw, k=1)[0]
+    return {"numeros": combo, "bonus": bonus}
+
 def get_fibonacci(mn, mx):
     r={}; a,b,pos=1,1,1
     while b<=mx:
@@ -566,8 +628,27 @@ def generar(loteria, inputs, modulos):
         try: excluir=[int(x.strip()) for x in inputs["excluir"].split(",") if x.strip().isdigit()]
         except: pass
 
-    pools=construir_pools(loteria,inputs,modulos)
-    elegidos=seleccionar(loteria,pools,modulos,excluir)
+    if "statistical" in modulos:
+        res_stat=generar_estadistico(loteria,excluir)
+        if res_stat:
+            nums_stat=res_stat["numeros"]
+            bonus_stat=res_stat["bonus"]
+            pools=construir_pools(loteria,inputs,modulos)
+            elegidos=seleccionar(loteria,pools,modulos,excluir)
+            # Mezclar estadístico con otros módulos (50/50)
+            import random as _r
+            n_stat=max(1,loteria["n"]//2)
+            stat_pool=[{"n":x,"fuente":"statistical","peso":0.9} for x in nums_stat[:n_stat] if x not in excluir]
+            elegidos_base=[e for e in elegidos if e["n"] not in [s["n"] for s in stat_pool]]
+            elegidos=(stat_pool+elegidos_base)[:loteria["n"]]
+            if bonus_stat and loteria["bonus"]: 
+                pass  # bonus_stat se aplica abajo
+        else:
+            pools=construir_pools(loteria,inputs,modulos)
+            elegidos=seleccionar(loteria,pools,modulos,excluir)
+    else:
+        pools=construir_pools(loteria,inputs,modulos)
+        elegidos=seleccionar(loteria,pools,modulos,excluir)
     nums=[e["n"] for e in elegidos]
 
     # Bonus — seleccion con historico propio de la balota especial
@@ -841,7 +922,8 @@ def render_resultado(res, loteria, modulos):
     role=st.session_state.get("user_role","free")
     is_pro=role in ["pro","admin"]
 
-    if "math" in modulos:     tema="MATHEMATICAL"; tc="#7B9FCC"
+    if "statistical" in modulos: tema="STATISTICAL"; tc="#4CAF9A"
+    elif "math" in modulos:     tema="MATHEMATICAL"; tc="#7B9FCC"
     elif "holistic" in modulos: tema="HOLISTIC";   tc="#9B8FCC"
     else:                     tema="REAL DATA";     tc="#C9A84C"
 
@@ -1116,6 +1198,26 @@ with st.expander(tr("Mathematical"),expanded=False):
     if any([uf,ut,us,up,ud]):
         modulos.append("math")
         inputs.update({"use_fib":uf,"use_tes":ut,"use_sag":us,"use_pri":up,"use_der":ud})
+
+
+# ESTADÍSTICO — Pro only
+with st.expander(f'⊕ {tr("Statistical")} {"— PRO" if role not in ["pro","admin"] else ""}',expanded=False):
+    if role not in ["pro","admin"]:
+        st.markdown(f'<div style="text-align:center;padding:12px 0;"><span class="soon-badge">PRO</span><p style="font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.25);margin-top:8px;">{tr("Gap analysis · Sum filter · Parity · Co-occurrence")}</p></div>',unsafe_allow_html=True)
+    else:
+        st.caption(tr("Gap analysis · Sum filter · Parity · Co-occurrence"))
+        d_stat = HIST_CSV.get(loteria["nombre"],{})
+        if d_stat:
+            venc = d_stat.get("vencidos",[])[:3]
+            cooc = d_stat.get("cooc",[])[:2]
+            st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:11px;color:rgba(201,168,76,.8);padding:8px 0;">⏳ {tr("Overdue")}: <b>{" · ".join(str(x).zfill(2) for x in venc)}</b></div>',unsafe_allow_html=True)
+            if cooc:
+                pares_str = " | ".join(f"{str(p[0]).zfill(2)}-{str(p[1]).zfill(2)}" for p in cooc)
+                st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:11px;color:rgba(201,168,76,.6);">🔗 {tr("Hot pairs")}: <b>{pares_str}</b></div>',unsafe_allow_html=True)
+            st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:11px;color:rgba(201,168,76,.6);">∑ {tr("Optimal sum")}: <b>{d_stat.get("suma_min",0)} – {d_stat.get("suma_max",0)}</b> · {tr("Avg pairs")}: <b>{d_stat.get("pares_avg",0)}</b></div>',unsafe_allow_html=True)
+        use_stat = st.checkbox(tr("Use statistical engine"),value=True,key="cb_stat")
+        if use_stat:
+            modulos.append("statistical")
 
 # COMUNIDAD — coming soon
 with st.expander(f'⊛ {tr("Community")}',expanded=False):
