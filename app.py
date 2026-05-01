@@ -959,61 +959,261 @@ def db_login(email, pw):
 # ══════════════════════════════════════════════════════
 
 # ── POSTAL COMPARTIBLE ESTILO BOLETO ──
+def _generar_png_postal(nums, bonus, nombre, flag, bname, fecha, badge, badge_rgb):
+    """Genera PNG descargable del boleto usando Pillow"""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        W, H = 520, 300
+        img = Image.new('RGB', (W, H), (7, 7, 15))
+        draw = ImageDraw.Draw(img)
+
+        # Fondo degradado sutil
+        for i in range(H):
+            t = i / H
+            r = int(7 + t * 8); g = int(7 + t * 8); b = int(15 + t * 15)
+            draw.line([(0, i), (W, i)], fill=(r, g, b))
+
+        # Borde dorado + barra superior
+        draw.rectangle([0, 0, W-1, H-1], outline=(201, 168, 76), width=2)
+        draw.rectangle([0, 0, W, 4], fill=(201, 168, 76))
+
+        # Intentar fuentes del sistema
+        try:
+            fp_bold = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
+            fp_reg  = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+            f_title  = ImageFont.truetype(fp_bold, 22)
+            f_sub    = ImageFont.truetype(fp_reg,  10)
+            f_ball   = ImageFont.truetype(fp_bold, 15)
+            f_badge  = ImageFont.truetype(fp_reg,  9)
+            f_lotto  = ImageFont.truetype(fp_bold, 12)
+        except:
+            f_title = f_sub = f_ball = f_badge = f_lotto = ImageFont.load_default()
+
+        # Logo LUCKSORT
+        draw.text((20, 18), "LUCK", fill=(201, 168, 76), font=f_title)
+        bbox = draw.textbbox((20, 18), "LUCK", font=f_title)
+        draw.text((bbox[2], 18), "SORT", fill=(220, 215, 200), font=f_title)
+        draw.text((20, 44), "lucksort.com", fill=(80, 80, 110), font=f_sub)
+
+        # Lotería (derecha)
+        lot_txt = nombre.upper()
+        lot_bbox = draw.textbbox((0, 0), lot_txt, font=f_lotto)
+        lot_w = lot_bbox[2] - lot_bbox[0]
+        draw.text((W - 20 - lot_w, 24), lot_txt, fill=(180, 175, 200), font=f_lotto)
+        draw.text((W - 20 - lot_w, 42), flag + " lottery", fill=(80, 80, 110), font=f_sub)
+
+        # Línea punteada separadora
+        for x in range(16, W-16, 10):
+            draw.line([(x, 68), (x+5, 68)], fill=(80, 65, 30), width=1)
+
+        # Dibujar bolas
+        ball_r = 28
+        all_nums = nums + ([bonus] if bonus else [])
+        n_main = len(nums)
+        spacing = ball_r * 2 + 10
+        total_w = len(all_nums) * spacing - 10
+        sx = (W - total_w) // 2
+        cy = 148
+
+        for i, n in enumerate(all_nums):
+            cx = sx + i * spacing + ball_r
+            is_b = (i >= n_main)
+            if is_b:
+                # Bola dorada con glow
+                draw.ellipse([cx-ball_r-2, cy-ball_r-2, cx+ball_r+2, cy+ball_r+2],
+                             fill=(80, 60, 10))
+                draw.ellipse([cx-ball_r, cy-ball_r, cx+ball_r, cy+ball_r],
+                             fill=(195, 155, 45), outline=(245, 215, 100), width=2)
+                txt_col = (10, 10, 10)
+            else:
+                draw.ellipse([cx-ball_r, cy-ball_r, cx+ball_r, cy+ball_r],
+                             fill=(22, 22, 38), outline=(90, 85, 120), width=1)
+                txt_col = (220, 215, 200)
+            # Número centrado
+            txt = str(n).zfill(2)
+            tb = draw.textbbox((0, 0), txt, font=f_ball)
+            tw = tb[2] - tb[0]; th = tb[3] - tb[1]
+            draw.text((cx - tw//2, cy - th//2 - 1), txt, fill=txt_col, font=f_ball)
+
+        # Label bname (bonus)
+        if bonus and bname:
+            bn_txt = bname.upper()
+            bn_bbox = draw.textbbox((0, 0), bn_txt, font=f_sub)
+            bn_w = bn_bbox[2] - bn_bbox[0]
+            draw.text(((W - bn_w)//2, cy + ball_r + 10), bn_txt, fill=(120, 95, 40), font=f_sub)
+
+        # Línea punteada inferior
+        sep_y = cy + ball_r + 30
+        for x in range(16, W-16, 10):
+            draw.line([(x, sep_y), (x+5, sep_y)], fill=(80, 65, 30), width=1)
+
+        # Badge módulo
+        badge_txt = badge
+        bg_bbox = draw.textbbox((0, 0), badge_txt, font=f_badge)
+        bw = bg_bbox[2] - bg_bbox[0]
+        bx, by = 20, sep_y + 14
+        draw.rectangle([bx-4, by-3, bx+bw+8, by+12], outline=badge_rgb, width=1)
+        draw.text((bx+2, by), badge_txt, fill=badge_rgb, font=f_badge)
+
+        # Fecha
+        fd_bbox = draw.textbbox((0, 0), fecha, font=f_badge)
+        fd_w = fd_bbox[2] - fd_bbox[0]
+        draw.text((W - 20 - fd_w, sep_y + 14), fecha, fill=(80, 80, 110), font=f_badge)
+
+        # Hashtag
+        ht = "#LuckSort"
+        ht_bbox = draw.textbbox((0, 0), ht, font=f_sub)
+        ht_w = ht_bbox[2] - ht_bbox[0]
+        draw.text(((W - ht_w)//2, H - 18), ht, fill=(60, 55, 80), font=f_sub)
+
+        buf = io.BytesIO()
+        img.save(buf, format='PNG', dpi=(150, 150))
+        buf.seek(0)
+        return buf
+    except Exception:
+        return None
+
+
 def render_postal(res, loteria):
-    from datetime import datetime
     nums = res.get("numeros", [])
     bonus = res.get("bonus")
     nombre = loteria["nombre"]
     flag = loteria["flag"]
-    bname = loteria.get("bname","")
+    bname = loteria.get("bname", "")
     fecha = datetime.now().strftime("%b %d, %Y")
     modulos_usados = res.get("modulos", [])
 
-    # Detectar módulo principal
     if "statistical" in modulos_usados:
-        badge = "STATISTICAL ENGINE"; badge_color = "#4CAF9A"
+        badge = "STATISTICAL ENGINE"; badge_color = "#4CAF9A"; badge_rgb = (76, 175, 154)
     elif "math" in modulos_usados:
-        badge = "MATHEMATICAL"; badge_color = "#7B9FCC"
+        badge = "MATHEMATICAL"; badge_color = "#7B9FCC"; badge_rgb = (123, 159, 204)
     elif "holistic" in modulos_usados:
-        badge = "HOLISTIC"; badge_color = "#9B8FCC"
+        badge = "HOLISTIC"; badge_color = "#9B8FCC"; badge_rgb = (155, 143, 204)
     else:
-        badge = "REAL DATA"; badge_color = "#C9A84C"
+        badge = "REAL DATA"; badge_color = "#C9A84C"; badge_rgb = (201, 168, 76)
 
+    # Bolas principales
     balls_html = "".join([
-        f'<div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.15),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.2);display:inline-flex;align-items:center;justify-content:center;font-family:DM Mono,monospace;font-size:14px;font-weight:700;color:#e8e4d9;margin:3px;">{str(n).zfill(2)}</div>'
+        f'''<div style="width:56px;height:56px;border-radius:50%;
+            background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.18) 0%,rgba(30,30,55,.95) 100%);
+            border:1.5px solid rgba(120,115,160,.5);
+            display:inline-flex;align-items:center;justify-content:center;
+            font-family:DM Mono,monospace;font-size:17px;font-weight:700;color:#e8e4d9;
+            margin:4px;box-shadow:0 4px 14px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1);">
+            {str(n).zfill(2)}</div>'''
         for n in nums
     ])
-    bonus_html = f'<div style="width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#F5D878,#B8922A);display:inline-flex;align-items:center;justify-content:center;font-family:DM Mono,monospace;font-size:14px;font-weight:700;color:#07070f;margin:3px;box-shadow:0 0 16px rgba(201,168,76,.5);">{str(bonus).zfill(2)}</div>' if bonus else ""
+
+    # Bola bonus
+    bonus_html = ""
+    if bonus:
+        bonus_html = f'''<div style="display:flex;flex-direction:column;align-items:center;margin-left:6px;">
+            <div style="width:56px;height:56px;border-radius:50%;
+                background:radial-gradient(circle at 35% 28%,#F5D878 0%,#B8922A 100%);
+                border:2px solid rgba(245,216,120,.6);
+                display:inline-flex;align-items:center;justify-content:center;
+                font-family:DM Mono,monospace;font-size:17px;font-weight:700;color:#07070f;
+                margin:4px;box-shadow:0 0 22px rgba(201,168,76,.55),inset 0 1px 0 rgba(255,255,255,.35);">
+                {str(bonus).zfill(2)}</div>
+            <div style="font-family:DM Mono,monospace;font-size:8px;color:rgba(201,168,76,.5);
+                letter-spacing:1px;margin-top:2px;">{bname}</div>
+        </div>'''
+
+    # Separador principal (entre nums y bonus)
+    sep_html = ""
+    if bonus:
+        sep_html = '<div style="width:1px;height:40px;background:rgba(201,168,76,.2);margin:0 8px 4px;align-self:center;"></div>'
 
     postal_html = f"""
-    <div id="lucksort-postal" style="background:linear-gradient(135deg,#07070f 0%,#0d0d1a 100%);border:1px solid rgba(201,168,76,.3);border-radius:20px;padding:24px 20px;max-width:420px;margin:16px auto;box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px rgba(201,168,76,.08);position:relative;overflow:hidden;">
-        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#C9A84C,#F5D878,#C9A84C);"></div>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
-            <div>
-                <div style="font-family:DM Mono,monospace;font-size:18px;font-weight:700;color:#C9A84C;letter-spacing:-0.5px;">LUCK<span style="color:#e8e4d9;">SORT</span></div>
-                <div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.3);letter-spacing:2px;margin-top:2px;">lucksort.com</div>
-            </div>
-            <div style="text-align:right;">
-                <div style="font-size:22px;">{flag}</div>
-                <div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.5);margin-top:2px;">{nombre}</div>
+    <div style="background:linear-gradient(145deg,#0a0a18 0%,#07070f 60%,#0d0b14 100%);
+        border:1.5px solid rgba(201,168,76,.35);border-radius:18px;
+        padding:0;max-width:480px;margin:16px auto;
+        box-shadow:0 12px 50px rgba(0,0,0,.7),0 0 0 1px rgba(201,168,76,.06);
+        position:relative;overflow:hidden;font-family:DM Mono,monospace;">
+
+        <!-- Barra top -->
+        <div style="height:4px;background:linear-gradient(90deg,#8B6914,#C9A84C,#F5D878,#C9A84C,#8B6914);"></div>
+
+        <!-- Círculos decorativos de fondo -->
+        <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;
+            background:radial-gradient(circle,rgba(201,168,76,.04),transparent);pointer-events:none;"></div>
+        <div style="position:absolute;bottom:-30px;left:-30px;width:120px;height:120px;border-radius:50%;
+            background:radial-gradient(circle,rgba(201,168,76,.03),transparent);pointer-events:none;"></div>
+
+        <div style="padding:18px 20px 0;">
+            <!-- Header -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+                <div>
+                    <div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;">
+                        <span style="color:#C9A84C;">LUCK</span><span style="color:#e8e4d9;">SORT</span>
+                    </div>
+                    <div style="font-size:9px;color:rgba(255,255,255,.25);letter-spacing:2px;margin-top:1px;">lucksort.com</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:24px;line-height:1;">{flag}</div>
+                    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);
+                        letter-spacing:0.5px;margin-top:3px;">{nombre.upper()}</div>
+                </div>
             </div>
         </div>
-        <div style="border-top:1px dashed rgba(201,168,76,.2);border-bottom:1px dashed rgba(201,168,76,.2);padding:16px 0;text-align:center;margin-bottom:14px;">
-            <div style="margin-bottom:8px;">{balls_html}{bonus_html}</div>
-            {"" if not bonus else f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.5);margin-top:4px;">{bname}</div>'}
+
+        <!-- Perforado superior -->
+        <div style="display:flex;align-items:center;padding:0 16px;margin:0 0 4px;">
+            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
+                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-left:-28px;"></div>
+            <div style="flex:1;border-top:1.5px dashed rgba(201,168,76,.18);margin:0 4px;"></div>
+            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
+                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-right:-28px;"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:6px;padding:3px 8px;">
-                <span style="font-family:DM Mono,monospace;font-size:9px;color:{badge_color};letter-spacing:1px;">{badge}</span>
+
+        <!-- Números -->
+        <div style="padding:16px 20px;text-align:center;">
+            <div style="font-size:8px;color:rgba(201,168,76,.35);letter-spacing:2px;margin-bottom:12px;">
+                ◆ YOUR LUCKY NUMBERS ◆
             </div>
-            <div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.3);">{fecha}</div>
+            <div style="display:flex;justify-content:center;align-items:flex-start;flex-wrap:wrap;">
+                <div style="display:flex;flex-wrap:wrap;justify-content:center;">{balls_html}</div>
+                {sep_html}{bonus_html}
+            </div>
+        </div>
+
+        <!-- Perforado inferior -->
+        <div style="display:flex;align-items:center;padding:0 16px;margin:4px 0 0;">
+            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
+                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-left:-28px;"></div>
+            <div style="flex:1;border-top:1.5px dashed rgba(201,168,76,.18);margin:0 4px;"></div>
+            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
+                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-right:-28px;"></div>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:12px 20px 16px;display:flex;justify-content:space-between;align-items:center;">
+            <div style="background:rgba(0,0,0,.3);border:1px solid {badge_color}33;
+                border-radius:6px;padding:4px 10px;">
+                <span style="font-size:9px;color:{badge_color};letter-spacing:1px;">{badge}</span>
+            </div>
+            <div style="font-size:9px;color:rgba(255,255,255,.25);">{fecha}</div>
         </div>
     </div>
     """
 
-    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.5);letter-spacing:1px;text-align:center;margin-top:20px;">{tr("YOUR LUCKY TICKET")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.4);letter-spacing:2px;text-align:center;margin-top:24px;">◆ {tr("YOUR LUCKY TICKET")} ◆</div>', unsafe_allow_html=True)
     st.markdown(postal_html, unsafe_allow_html=True)
-    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.2);text-align:center;margin-top:4px;">{tr("Screenshot & share · #LuckSort")}</div>', unsafe_allow_html=True)
+
+    # Botón descargar PNG
+    png_buf = _generar_png_postal(nums, bonus, nombre, flag, bname, fecha, badge, badge_rgb)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if png_buf:
+            st.download_button(
+                label=f"⬇ {tr('Save Ticket as Image')}",
+                data=png_buf,
+                file_name=f"lucksort_{nombre.lower().replace(' ','_')}_{date.today()}.png",
+                mime="image/png",
+                use_container_width=True,
+                key="dl_postal"
+            )
+        st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.15);text-align:center;margin-top:6px;">{tr("Screenshot & share")} · #LuckSort</div>', unsafe_allow_html=True)
 
 def render_resultado(res, loteria, modulos):
     nums=res.get("numbers",[]); bonus=res.get("bonus"); sources=res.get("sources",[])
@@ -1146,63 +1346,169 @@ st.markdown('<hr class="g" style="margin-top:4px;">', unsafe_allow_html=True)
 # LANDING
 # ══════════════════════════════════════════════════════
 if not st.session_state["logged_in"]:
-    # Hero text
-    st.markdown(f"""<div style="text-align:center;padding:24px 16px 16px;">
-<div style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.18);font-family:DM Mono,monospace;font-size:10px;color:#C9A84C;letter-spacing:2px;margin-bottom:18px;">
-<span style="width:5px;height:5px;border-radius:50%;background:#C9A84C;display:inline-block;box-shadow:0 0 6px #C9A84C;"></span>DATA CONVERGENCE ENGINE</div>
-<h1 style="font-family:'Playfair Display',serif;font-size:clamp(26px,6vw,48px);font-weight:700;line-height:1.1;letter-spacing:-1.5px;color:white;margin-bottom:8px;">{tr("The world has patterns.")}<br><span style="background:linear-gradient(135deg,#C9A84C,#F5D878);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">{tr("Numbers hold them.")}</span></h1>
-<p style="font-size:15px;color:rgba(232,228,217,.38);max-width:380px;margin:0 auto;">{tr("We find them for you.")}</p>
-</div>""", unsafe_allow_html=True)
 
-    # Heat maps - 3 loterias
-    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.35);letter-spacing:3px;text-align:center;margin-bottom:12px;">{tr("HISTORICAL HEAT MAP — 26 YEARS OF REAL DATA")}</div>', unsafe_allow_html=True)
-
-    tab1,tab2,tab3=st.tabs(["🇺🇸 Powerball","🇺🇸 Mega Millions","🇪🇺 EuroMillions"])
-    with tab1: render_heatmap("Powerball")
-    with tab2: render_heatmap("Mega Millions")
-    with tab3: render_heatmap("EuroMillions")
+    # ── HERO ──
+    st.markdown(f"""
+    <div style="text-align:center;padding:36px 16px 28px;max-width:600px;margin:0 auto;">
+        <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;border-radius:20px;
+            background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);
+            font-family:DM Mono,monospace;font-size:9px;color:#C9A84C;letter-spacing:2.5px;margin-bottom:22px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#C9A84C;
+                box-shadow:0 0 8px #C9A84C;animation:glow 2s ease-in-out infinite;"></span>
+            DATA CONVERGENCE ENGINE · 11 {tr("LOTTERIES")}
+        </div>
+        <h1 style="font-family:'Playfair Display',serif;font-size:clamp(30px,7vw,54px);
+            font-weight:700;line-height:1.08;letter-spacing:-2px;color:white;margin-bottom:14px;">
+            {tr("The world has")}<br>
+            <span style="background:linear-gradient(135deg,#C9A84C 0%,#F5D878 50%,#C9A84C 100%);
+                -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+                background-clip:text;">{tr("patterns.")}</span>
+            {tr("Numbers")}<br>{tr("hold them.")}
+        </h1>
+        <p style="font-size:16px;color:rgba(232,228,217,.35);max-width:340px;margin:0 auto 26px;line-height:1.6;">
+            {tr("Real historical data + mathematics + AI — to generate lottery combinations with convergence.")}
+        </p>
+        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:28px;">
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;
+                background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+                font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.4);">
+                ⊞ {tr("Real draws 1994–2025")}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;
+                background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+                font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.4);">
+                ϕ {tr("Mathematical modules")}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;
+                background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+                font-family:DM Mono,monospace;font-size:10px;color:rgba(255,255,255,.4);">
+                ◈ EN · ES · PT
+            </div>
+        </div>
+        <!-- Bolas animadas preview -->
+        <div style="margin-bottom:8px;">
+            <div class="ball" id="pb0">07</div>
+            <div class="ball" id="pb1">14</div>
+            <div class="ball" id="pb2">23</div>
+            <div class="ball" id="pb3">34</div>
+            <div class="ball" id="pb4">55</div>
+            <div class="ball ball-gold" id="pb5">12</div>
+        </div>
+        <div style="font-family:DM Mono,monospace;font-size:8px;color:rgba(255,255,255,.12);
+            letter-spacing:2px;">POWERBALL · LIVE PREVIEW</div>
+    </div>
+    <script>
+    const _s=[[7,14,23,34,55],[8,15,22,33,44],[5,12,27,38,52],[3,18,29,41,60],[11,21,32,43,57]];
+    const _g=[12,6,11,8,22,19];let _i=0;
+    setInterval(()=>{{_i=(_i+1)%_s.length;
+    for(let j=0;j<5;j++){{const e=document.getElementById('pb'+j);if(e)e.textContent=String(_s[_i][j]).padStart(2,'0');}}
+    const eg=document.getElementById('pb5');if(eg)eg.textContent=String(_g[_i%_g.length]).padStart(2,'0');
+    }},2600);
+    </script>
+    """, unsafe_allow_html=True)
 
     st.markdown('<hr class="g">', unsafe_allow_html=True)
 
-    # Balotas preview
-    st.markdown(f"""<div style="text-align:center;margin:12px 0 16px;">
-<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.14);letter-spacing:3px;margin-bottom:10px;">LIVE PREVIEW · POWERBALL</div>
-<div style="display:flex;justify-content:center;flex-wrap:wrap;margin-bottom:12px;">
-<div class="ball" id="pb0">07</div><div class="ball" id="pb1">14</div><div class="ball" id="pb2">23</div>
-<div class="ball" id="pb3">34</div><div class="ball" id="pb4">55</div>
-<div class="ball ball-gold" id="pb5">12</div></div>
-<div style="display:flex;flex-direction:column;gap:5px;max-width:360px;margin:0 auto;">
-<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:9px 14px;">
-<div style="display:flex;align-items:center;gap:8px;"><span>ϕ</span><div>
-<div style="font-family:DM Mono,monospace;font-size:9px;color:#C9A84C;letter-spacing:1px;">FIBONACCI</div>
-<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.5);">F9+F10=34 — position 11 in sequence</div>
-</div></div><span style="font-family:DM Mono,monospace;font-size:18px;font-weight:700;color:#C9A84C;">→ 34</span></div>
-<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:9px 14px;">
-<div style="display:flex;align-items:center;gap:8px;"><span>⊞</span><div>
-<div style="font-family:DM Mono,monospace;font-size:9px;color:#C9A84C;letter-spacing:1px;">HISTORIAN</div>
-<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.5);">#1 most frequent — appeared 187x (1997-2024)</div>
-</div></div><span style="font-family:DM Mono,monospace;font-size:18px;font-weight:700;color:#C9A84C;">→ 26</span></div>
-<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.02);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:9px 14px;">
-<div style="display:flex;align-items:center;gap:8px;"><span>∇</span><div>
-<div style="font-family:DM Mono,monospace;font-size:9px;color:#C9A84C;letter-spacing:1px;">DERIVED</div>
-<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.5);">ϕ×26=42 — golden ratio of top historical</div>
-</div></div><span style="font-family:DM Mono,monospace;font-size:18px;font-weight:700;color:#C9A84C;">→ 42</span></div>
-</div></div>
-<script>
-const s=[[7,14,23,34,55],[8,15,22,33,44],[5,12,27,38,52],[3,18,29,41,60],[11,21,32,43,57]];
-const g=[12,6,11,8,22,19];let i=0;
-setInterval(()=>{{i=(i+1)%s.length;for(let j=0;j<5;j++){{const e=document.getElementById('pb'+j);if(e)e.textContent=String(s[i][j]).padStart(2,'0');}}
-const eg=document.getElementById('pb5');if(eg)eg.textContent=String(g[i%g.length]).padStart(2,'0');}},2800);
-</script>""", unsafe_allow_html=True)
+    # ── FEATURES 3 COLUMNAS ──
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.3);letter-spacing:3px;text-align:center;margin:20px 0 16px;">{tr("HOW IT WORKS")}</div>', unsafe_allow_html=True)
 
+    f1, f2, f3 = st.columns(3)
+    feat_style = "background:rgba(255,255,255,.02);border:1px solid rgba(201,168,76,.1);border-radius:14px;padding:18px 14px;text-align:center;height:100%;"
+
+    with f1:
+        st.markdown(f"""<div style="{feat_style}">
+        <div style="font-size:28px;margin-bottom:10px;">⊞</div>
+        <div style="font-family:DM Mono,monospace;font-size:10px;color:#C9A84C;letter-spacing:1.5px;margin-bottom:8px;">{tr("REAL DATA")}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6;">{tr("Millions of real historical draws analyzed since 1994.")}</div>
+        </div>""", unsafe_allow_html=True)
+
+    with f2:
+        st.markdown(f"""<div style="{feat_style}border-color:rgba(201,168,76,.25);">
+        <div style="font-size:28px;margin-bottom:10px;">ϕ</div>
+        <div style="font-family:DM Mono,monospace;font-size:10px;color:#C9A84C;letter-spacing:1.5px;margin-bottom:8px;">{tr("MATHEMATICS")}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6;">{tr("Fibonacci, Tesla, Primes, Sacred Geometry — applied to numbers.")}</div>
+        </div>""", unsafe_allow_html=True)
+
+    with f3:
+        st.markdown(f"""<div style="{feat_style}">
+        <div style="font-size:28px;margin-bottom:10px;">◆</div>
+        <div style="font-family:DM Mono,monospace;font-size:10px;color:#C9A84C;letter-spacing:1.5px;margin-bottom:8px;">{tr("CONVERGENCE")}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6;">{tr("Numbers that appear in multiple signals get the highest score.")}</div>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown('<div style="height:24px"></div>', unsafe_allow_html=True)
     st.markdown('<hr class="g">', unsafe_allow_html=True)
+
+    # ── PRICING ──
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.3);letter-spacing:3px;text-align:center;margin:20px 0 16px;">{tr("PLANS")}</div>', unsafe_allow_html=True)
+
+    pc1, pc2, pc3 = st.columns(3)
+
+    with pc1:
+        st.markdown(f"""<div style="background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.07);
+            border-radius:14px;padding:18px 14px;text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:15px;color:rgba(255,255,255,.5);margin-bottom:10px;">Free</div>
+            <div style="font-family:DM Mono,monospace;font-size:24px;font-weight:700;color:rgba(255,255,255,.4);margin-bottom:12px;">$0</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.25);line-height:1.8;margin-bottom:14px;">
+                ✓ 2 {tr("combinations/day")}<br>
+                ✓ {tr("Real + Math modules")}<br>
+                ✓ 11 {tr("lotteries")}<br>
+                ✗ {tr("Heat map")}<br>
+                ✗ PDF
+            </div>
+        </div>""", unsafe_allow_html=True)
+
+    with pc2:
+        st.markdown(f"""<div style="background:rgba(201,168,76,.04);border:1px solid rgba(201,168,76,.35);
+            border-radius:14px;padding:18px 14px;text-align:center;
+            box-shadow:0 0 24px rgba(201,168,76,.08);">
+            <div style="font-family:DM Mono,monospace;font-size:8px;color:#C9A84C;
+                letter-spacing:2px;margin-bottom:4px;">⭐ POPULAR</div>
+            <div style="font-family:'Playfair Display',serif;font-size:15px;color:#C9A84C;margin-bottom:10px;">Basic</div>
+            <div style="font-family:DM Mono,monospace;font-size:24px;font-weight:700;color:#C9A84C;margin-bottom:4px;">$4.99</div>
+            <div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.4);margin-bottom:12px;">/mo</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.8;margin-bottom:14px;">
+                ✓ {tr("Unlimited combinations")}<br>
+                ✓ {tr("All modules")}<br>
+                ✓ {tr("Holistic + Statistical")}<br>
+                ✓ 11 {tr("lotteries")}<br>
+                ✗ PDF · Heat map
+            </div>
+            <a href="{STRIPE_BASIC}" target="_blank" style="display:block;background:linear-gradient(135deg,#C9A84C,#F0C84A);
+                color:#07070f;font-weight:700;padding:9px;border-radius:10px;text-decoration:none;
+                font-size:12px;font-family:DM Mono,monospace;">{tr("Start Basic")}</a>
+        </div>""", unsafe_allow_html=True)
+
+    with pc3:
+        st.markdown(f"""<div style="background:rgba(123,159,204,.04);border:1px solid rgba(123,159,204,.25);
+            border-radius:14px;padding:18px 14px;text-align:center;">
+            <div style="font-family:'Playfair Display',serif;font-size:15px;color:#7B9FCC;margin-bottom:10px;">Pro</div>
+            <div style="font-family:DM Mono,monospace;font-size:24px;font-weight:700;color:#7B9FCC;margin-bottom:4px;">$9.99</div>
+            <div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(123,159,204,.4);margin-bottom:12px;">/mo</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.45);line-height:1.8;margin-bottom:14px;">
+                ✓ {tr("Everything in Basic")}<br>
+                ✓ {tr("Interactive Heat Map")}<br>
+                ✓ PDF {tr("download")}<br>
+                ✓ {tr("High Convergence badge")}<br>
+                ✓ {tr("Priority support")}
+            </div>
+            <a href="{STRIPE_PRO}" target="_blank" style="display:block;background:linear-gradient(135deg,#7B9FCC,#9BB8E8);
+                color:#07070f;font-weight:700;padding:9px;border-radius:10px;text-decoration:none;
+                font-size:12px;font-family:DM Mono,monospace;">{tr("Start Pro")}</a>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown('<hr class="g" style="margin-top:28px;">', unsafe_allow_html=True)
+
+    # ── FORM REGISTRO / LOGIN ──
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(201,168,76,.3);letter-spacing:3px;text-align:center;margin:20px 0 4px;">{tr("GET STARTED FREE")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<p style="text-align:center;font-size:12px;color:rgba(255,255,255,.2);margin-bottom:16px;">{tr("No credit card required")}</p>', unsafe_allow_html=True)
+
     _,cc,_=st.columns([1,2,1])
     with cc:
-        st.markdown('<p style="text-align:center;font-family:monospace;font-size:9px;color:rgba(255,255,255,.14);letter-spacing:1.5px;margin-bottom:10px;">FREE · NO CREDIT CARD · EN / ES / PT</p>', unsafe_allow_html=True)
         tab_r,tab_l=st.tabs([tr("Create Account"),tr("Sign In")])
         with tab_r:
             re_em=st.text_input(tr("Email"),key="lr_em",placeholder="your@email.com")
-            re_pw=st.text_input(tr("Password"),key="lr_pw",type="password")
+            re_pw=st.text_input(tr("Password"),key="lr_pw",type="password",placeholder="min 6 characters")
             re_pw2=st.text_input(tr("Confirm password"),key="lr_pw2",type="password")
             if st.button(tr("Create Free Account"),key="lr_btn"):
                 if re_pw!=re_pw2: st.error(tr("Passwords do not match"))
@@ -1221,6 +1527,9 @@ const eg=document.getElementById('pb5');if(eg)eg.textContent=String(g[i%g.length
                     ok,d=db_login(le,lp)
                     if ok: st.session_state.update({"logged_in":True,"user_role":d.get("role","free"),"user_email":d["email"],"user_id":d.get("id")}); st.rerun()
                     else: st.error(tr("Incorrect email or password"))
+
+    st.markdown('<div style="height:40px"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:8px;color:rgba(255,255,255,.1);text-align:center;letter-spacing:1px;padding-bottom:20px;">© 2025 LuckSort · lucksort.com · @getlucksort</div>', unsafe_allow_html=True)
     st.stop()
 
 # ══════════════════════════════════════════════════════
