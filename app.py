@@ -1075,7 +1075,7 @@ def _generar_png_postal(nums, bonus, nombre, flag, bname, fecha, badge, badge_rg
 
 
 def render_postal(res, loteria):
-    nums = res.get("numeros", [])
+    nums = res.get("numbers", res.get("numeros", []))
     bonus = res.get("bonus")
     nombre = loteria["nombre"]
     flag = loteria["flag"]
@@ -1325,11 +1325,11 @@ if not st.session_state["logged_in"]:
         </div>
         <h1 style="font-family:'Playfair Display',serif;font-size:clamp(30px,7vw,54px);
             font-weight:700;line-height:1.08;letter-spacing:-2px;color:white;margin-bottom:14px;">
-            {tr("The world has")}<br>
+            {tr("Play smarter.")}<br>
             <span style="background:linear-gradient(135deg,#C9A84C 0%,#F5D878 50%,#C9A84C 100%);
                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-                background-clip:text;">{tr("patterns.")}</span>
-            {tr("Numbers")}<br>{tr("hold them.")}
+                background-clip:text;">{tr("With 30 years of real data.")}</span>
+
         </h1>
         <p style="font-size:16px;color:rgba(232,228,217,.35);max-width:340px;margin:0 auto 26px;line-height:1.6;">
             {tr("Real historical data + mathematics + AI — to generate lottery combinations with convergence.")}
