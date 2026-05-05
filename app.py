@@ -1124,78 +1124,44 @@ def render_postal(res, loteria):
     if bonus:
         sep_html = '<div style="width:1px;height:40px;background:rgba(201,168,76,.2);margin:0 8px 4px;align-self:center;"></div>'
 
-    postal_html = f"""
-    <div style="background:linear-gradient(145deg,#0a0a18 0%,#07070f 60%,#0d0b14 100%);
-        border:1.5px solid rgba(201,168,76,.35);border-radius:18px;
-        padding:0;max-width:480px;margin:16px auto;
-        box-shadow:0 12px 50px rgba(0,0,0,.7),0 0 0 1px rgba(201,168,76,.06);
-        position:relative;overflow:hidden;font-family:DM Mono,monospace;">
-
-        <!-- Barra top -->
-        <div style="height:4px;background:linear-gradient(90deg,#8B6914,#C9A84C,#F5D878,#C9A84C,#8B6914);"></div>
-
-        <!-- Círculos decorativos de fondo -->
-        <div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;
-            background:radial-gradient(circle,rgba(201,168,76,.04),transparent);pointer-events:none;"></div>
-        <div style="position:absolute;bottom:-30px;left:-30px;width:120px;height:120px;border-radius:50%;
-            background:radial-gradient(circle,rgba(201,168,76,.03),transparent);pointer-events:none;"></div>
-
-        <div style="padding:18px 20px 0;">
-            <!-- Header -->
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
-                <div>
-                    <div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;">
-                        <span style="color:#C9A84C;">LUCK</span><span style="color:#e8e4d9;">SORT</span>
-                    </div>
-                    <div style="font-size:9px;color:rgba(255,255,255,.25);letter-spacing:2px;margin-top:1px;">lucksort.com</div>
-                </div>
-                <div style="text-align:right;">
-                    <div style="font-size:24px;line-height:1;">{flag}</div>
-                    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);
-                        letter-spacing:0.5px;margin-top:3px;">{nombre.upper()}</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Perforado superior -->
-        <div style="display:flex;align-items:center;padding:0 16px;margin:0 0 4px;">
-            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
-                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-left:-28px;"></div>
-            <div style="flex:1;border-top:1.5px dashed rgba(201,168,76,.18);margin:0 4px;"></div>
-            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
-                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-right:-28px;"></div>
-        </div>
-
-        <!-- Números -->
-        <div style="padding:16px 20px;text-align:center;">
-            <div style="font-size:8px;color:rgba(201,168,76,.35);letter-spacing:2px;margin-bottom:12px;">
-                ◆ YOUR LUCKY NUMBERS ◆
-            </div>
-            <div style="display:flex;justify-content:center;align-items:flex-start;flex-wrap:wrap;">
-                <div style="display:flex;flex-wrap:wrap;justify-content:center;">{balls_html}</div>
-                {sep_html}{bonus_html}
-            </div>
-        </div>
-
-        <!-- Perforado inferior -->
-        <div style="display:flex;align-items:center;padding:0 16px;margin:4px 0 0;">
-            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
-                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-left:-28px;"></div>
-            <div style="flex:1;border-top:1.5px dashed rgba(201,168,76,.18);margin:0 4px;"></div>
-            <div style="width:14px;height:14px;border-radius:50%;background:#07070f;
-                border:1px solid rgba(201,168,76,.15);flex-shrink:0;margin-right:-28px;"></div>
-        </div>
-
-        <!-- Footer -->
-        <div style="padding:12px 20px 16px;display:flex;justify-content:space-between;align-items:center;">
-            <div style="background:rgba(0,0,0,.3);border:1px solid {badge_color}33;
-                border-radius:6px;padding:4px 10px;">
-                <span style="font-size:9px;color:{badge_color};letter-spacing:1px;">{badge}</span>
-            </div>
-            <div style="font-size:9px;color:rgba(255,255,255,.25);">{fecha}</div>
-        </div>
-    </div>
-    """
+    postal_html = (
+        '<div style="background:linear-gradient(145deg,#0a0a18 0%,#07070f 60%,#0d0b14 100%);'
+        'border:1.5px solid rgba(201,168,76,.35);border-radius:18px;'
+        'padding:0;max-width:480px;margin:16px auto;'
+        'box-shadow:0 12px 50px rgba(0,0,0,.7),0 0 0 1px rgba(201,168,76,.06);'
+        'position:relative;overflow:hidden;font-family:DM Mono,monospace;">'
+        '<div style="height:4px;background:linear-gradient(90deg,#8B6914,#C9A84C,#F5D878,#C9A84C,#8B6914);"></div>'
+        '<div style="position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;'
+        'background:radial-gradient(circle,rgba(201,168,76,.04),transparent);pointer-events:none;"></div>'
+        '<div style="position:absolute;bottom:-30px;left:-30px;width:120px;height:120px;border-radius:50%;'
+        'background:radial-gradient(circle,rgba(201,168,76,.03),transparent);pointer-events:none;"></div>'
+        '<div style="padding:18px 20px 0;">'
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">'
+        '<div>'
+        '<div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;">'
+        '<span style="color:#C9A84C;">LUCK</span><span style="color:#e8e4d9;">SORT</span></div>'
+        '<div style="font-size:9px;color:rgba(255,255,255,.25);letter-spacing:2px;margin-top:1px;">lucksort.com</div>'
+        '</div>'
+        '<div style="text-align:right;">'
+        f'<div style="font-size:24px;line-height:1;">{flag}</div>'
+        f'<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:0.5px;margin-top:3px;">{nombre.upper()}</div>'
+        '</div></div></div>'
+        '<div style="display:flex;align-items:center;padding:0 20px;margin:0 0 4px;">'
+        '<div style="flex:1;border-top:1.5px dashed rgba(201,168,76,.2);"></div></div>'
+        '<div style="padding:16px 20px;text-align:center;">'
+        '<div style="font-size:8px;color:rgba(201,168,76,.35);letter-spacing:2px;margin-bottom:12px;">&#9670; YOUR LUCKY NUMBERS &#9670;</div>'
+        '<div style="display:flex;justify-content:center;align-items:flex-start;flex-wrap:wrap;">'
+        f'<div style="display:flex;flex-wrap:wrap;justify-content:center;">{balls_html}</div>'
+        f'{sep_html}{bonus_html}'
+        '</div></div>'
+        '<div style="display:flex;align-items:center;padding:0 20px;margin:4px 0 0;">'
+        '<div style="flex:1;border-top:1.5px dashed rgba(201,168,76,.2);"></div></div>'
+        '<div style="padding:12px 20px 16px;display:flex;justify-content:space-between;align-items:center;">'
+        f'<div style="background:rgba(0,0,0,.3);border:1px solid {badge_color}44;border-radius:6px;padding:4px 10px;">'
+        f'<span style="font-size:9px;color:{badge_color};letter-spacing:1px;">{badge}</span></div>'
+        f'<div style="font-size:9px;color:rgba(255,255,255,.25);">{fecha}</div>'
+        '</div></div>'
+    )
 
     st.markdown(f'<div style="font-family:DM Mono,monospace;font-size:10px;color:rgba(201,168,76,.4);letter-spacing:2px;text-align:center;margin-top:24px;">◆ {tr("YOUR LUCKY TICKET")} ◆</div>', unsafe_allow_html=True)
     st.markdown(postal_html, unsafe_allow_html=True)
