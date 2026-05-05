@@ -1351,7 +1351,6 @@ if not st.session_state["logged_in"]:
                 ◈ EN · ES · PT
             </div>
         </div>
-        <!-- Bolas animadas preview -->
         <div style="margin-bottom:8px;">
             <div class="ball" id="pb0">07</div>
             <div class="ball" id="pb1">14</div>
