@@ -1329,7 +1329,6 @@ if not st.session_state["logged_in"]:
             <span style="background:linear-gradient(135deg,#C9A84C 0%,#F5D878 50%,#C9A84C 100%);
                 -webkit-background-clip:text;-webkit-text-fill-color:transparent;
                 background-clip:text;">{tr("With 30 years of real data.")}</span>
-
         </h1>
         <p style="font-size:16px;color:rgba(232,228,217,.35);max-width:340px;margin:0 auto 26px;line-height:1.6;">
             {tr("Real historical data + mathematics + AI — to generate lottery combinations with convergence.")}
